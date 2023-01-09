@@ -1,9 +1,8 @@
-# flir_camera_interface
-A GUI interface for operating FLIR cameras via the Spinnaker SDK
+# FLIR Camera Interface
 
 A GUI interface for perating FLIR cameras via the Spinnaker SDK. The interface includes optional elements for simultaneously integrating the detection with (1) a display engine (for doing Fringe Projection Profilometry), (2) a Thorlabs liquid crystal tunable filter (LCTF, for doing spectral imaging).
 
-# Requirements
+## Requirements
 
 The user must have FLIR's Spinnaker SDK installed, and have a camera that is operating via SpinView without problems.
 
@@ -17,7 +16,7 @@ Next, the user should copy the PySpin wheel file (this has a name like ``spinnak
 
 Now you should be able to run ``flir_camera_interface.py`` file.
 
-# Module files
+## Module files
 
 ``flir_camera_interface.py``: the GUI interface itself.
 
