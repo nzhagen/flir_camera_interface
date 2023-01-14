@@ -53,12 +53,45 @@ from numpy import empty
 #  Once an image from the buffer is saved and/or no longer
 #  needed, the image must be released in order to keep the
 #  buffer from filling up.
-
+#
+#  For Spinnaker's image Save() function, the allowed image formats (extensions) are:
+#       PGM 	    Portable gray map.
+#       PPM         Portable pixmap.
+#       BMP 	    Bitmap.
+#       JPEG 	    JPEG.
+#       JPEG2000 	JPEG 2000.
+#       TIFF 	    Tagged image file format.
+#       PNG 	    Portable network graphics.
+#       RAW 	    Raw data.
+#       JPEG12_C 	12 bit compressed JPEG data. 
 
 ## ====================================================================================
 def truncate_multiple(value, increment):
     trunc_value = increment * (value // increment)
     return(trunc_value)
+
+## ===============================================================================================
+def read_binary_image(filename, Nx, Ny):
+    ## Read an image file saved in Spinnaker's binary format. Assumes fmt=uint16.
+    with open(filename, 'rb') as fileobj:
+        raw = fileobj.read()
+
+    buffersize = len(raw)
+
+    bytesize = 2
+    img = zeros((Nx,Ny), 'uint16')
+    q = 0
+
+    xvalues = Nx - 1 - arange(Nx)
+    for x in xvalues:
+        try:
+            row = uint16(struct.unpack(('<'+str(Ny)+'H').encode('ascii'), raw[q:q+(Ny*bytesize)]))
+        except Exception as e:
+            raise ImportError('Cannot decode datacube: ' + repr(e))
+        img[x,:] = row
+        q += Ny * bytesize
+
+    return(img)
 
 ## ====================================================================================
 def set_exposure_time(nodemap, time_in_usec, verbose=False):
@@ -677,7 +710,10 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
                 #msg = 'Grabbed Image width=%d, height=%d, fmt=%s, timestamp(ns)=%d' % (width, height, fmt, ts)
 
                 if filename:
-                    ## Convert image to mono8 for file saving. PySpin can only save to 8-bit formats.
+                    ## Convert image for saving. PySpin can save 16-bit data in RAW format, but all other formats must be 8-bit.
+                    if filename.endswith('raw') and (image_result.GetPixelFormatName() == 'Mono16'):
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
+                    else:
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_converted.Save(filename)
                     if verbose:
@@ -685,8 +721,10 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
                 elif verbose:
                     print(msg)
 
-                ## This is the numpy array result to return.
+                ## This is the numpy array result to return. Flip up-down to fit bottom-left origin display.
                 image_data = image_result.GetNDArray()
+                image_data = image_data[::-1,:]
+                ts = image_result.GetTimeStamp()
                 
                 ## Release image. Images retrieved directly from the camera (i.e. non-converted
                 ## images) need to be released in order to keep from filling the buffer.
@@ -804,3 +842,117 @@ def get_exposure(nodemap, verbose=False):
 
     return(exposure_time)
 
+## ====================================================================================
+def set_exposure_compensation_off(nodemap, verbose=False):
+    """
+    This function temporarily disables automatic exposure.
+
+    :param nodemap: Device GenICam nodemap
+    :type nodemap: CameraPtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+ 
+    try:
+        result = True
+
+        node_exposure_compensation_auto = PySpin.CEnumerationPtr(nodemap.GetNode('ExposureCompensationAuto'))
+        if not PySpin.IsAvailable(node_exposure_compensation_auto) and PySpin.IsWritable(node_exposure_compensation_auto):
+            print('Autoexposure node is not available.')
+            return(False)
+
+        node_exposure_compensation_auto_off = node_exposure_compensation_auto.GetEntryByName("Off")
+        if not PySpin.IsAvailable(node_exposure_compensation_auto_off) and PySpin.IsReadable(node_exposure_compensation_auto_off):
+            print('Autoexposure_off node is not available.')
+            return(False)
+        
+        node_exposure_compensation_auto.SetIntValue(node_exposure_compensation_auto_off.GetValue())
+        if verbose:
+            print('Turning auto exposure compensation off')
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        result = False
+
+    return result
+
+## ====================================================================================
+def set_exposure_compensation_on(nodemap, verbose=False):
+    """
+    This function temporarily disables automatic exposure.
+
+    :param nodemap: Device GenICam nodemap
+    :type nodemap: CameraPtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+ 
+    try:
+        result = True
+
+        node_exposure_compensation_auto = PySpin.CEnumerationPtr(nodemap.GetNode('ExposureCompensationAuto'))
+        if not PySpin.IsAvailable(node_exposure_compensation_auto) and PySpin.IsWritable(node_exposure_compensation_auto):
+            print('Autoexposure node is not available.')
+            return(False)
+
+        node_exposure_compensation_auto_on = node_exposure_compensation_auto.GetEntryByName("Continuous")
+        if not PySpin.IsAvailable(node_exposure_compensation_auto_on) and PySpin.IsReadable(node_exposure_compensation_auto_on):
+            print('Exposure_compensation_on node is not available.')
+            return(False)
+        
+        node_exposure_compensation_auto.SetIntValue(node_exposure_compensation_auto_on.GetValue())
+        if verbose:
+            print('Turning auto exposure compensation on')
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        result = False
+
+    return result
+
+## ====================================================================================
+def save_image_pointer_list_to_avi(nodemap, image_list, avi_filename, image_height=480, image_width=640, avi_type='H264'):
+    """
+    This function writes an AVI video from a list of images.
+
+    :param nodemap: Device nodemap.
+    :param images: List of images to save to an AVI video.
+    :type nodemap: INodeMap
+    :type images: list of ImagePtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+    try:
+        result = True
+        framerate = get_framerate(nodemap)
+        avi_recorder = PySpin.SpinVideo()
+
+        if (avi_type == 'UNCOMPRESSED'):
+            option = PySpin.AVIOption()
+            option.frameRate = framerate
+        elif (avi_type == 'MJPG'):
+            option = PySpin.MJPGOption()
+            option.frameRate = framerate
+            option.quality = 75
+        elif (avi_type == 'H264'):
+            option = PySpin.H264Option()
+            option.frameRate = framerate
+            option.bitrate = 1000000
+            option.height = image_height
+            option.width = image_width
+        else:
+            print('Error: Unknown AVI type. Aborting...')
+            return(False)
+
+        avi_recorder.Open(avi_filename, option)
+        for i in range(len(image_list)):
+            avi_recorder.Append(image_list[i])
+            print('Appended image %d...' % i)
+
+        avi_recorder.Close()
+        print('Video saved at %s.avi' % avi_filename)
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return(False)
+
+    return(result)
