@@ -1,7 +1,8 @@
 import os
 import sys
 import PySpin
-from numpy import empty
+from numpy import empty, amin, amax, array, zeros, arange, uint16
+import struct
 
 # *** NOTES ***
 # 
@@ -598,9 +599,10 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
     :rtype: bool
     """
 
+    (image_width, image_height) = get_image_width_height(nodemap, verbose=False)
+
     try:
         ## Set acquisition mode to continuous.
-
         ## In order to access the node entries, they have to be casted to a pointer type (CEnumerationPtr here)
         node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode('AcquisitionMode'))
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
@@ -622,11 +624,11 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
         ## Begin acquiring images. Image acquisition must be ended when no more images are needed.
         cam.BeginAcquisition()
 
+        image_set = zeros((image_height,image_width,num_images), 'uint16')
+        ts_set = zeros(num_images, 'uint64')
+        
         ## Retrieve, convert, and save images
         for i in range(num_images):
-            image_set = empty((self.Nx,self.Ny,self.navgs), 'uint16')
-            ts_set = empty(self.navgs, 'uint32')
-            
             try:
                 ## Retrieve the next received image. Capturing an image houses images on the camera buffer. Trying to
                 ## capture an image that does not exist will hang the camera. Once an image from the buffer is saved
@@ -647,13 +649,17 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
                     #msg = 'Grabbed Image width=%d, height=%d, fmt=%s, timestamp(ns)=%d' % (width, height, fmt, ts)
 
                 if do_filesave:
-                    ## Convert image to mono8 for file saving. PySpin can only save to 8-bit formats.
+                    ## Convert image for saving. PySpin can save 16-bit data in RAW format, but all other formats must be 8-bit.
+                    if filename.endswith('raw') and (image_result.GetPixelFormatName() == 'Mono16'):
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
+                    else:
                     image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     filename = f'{i:05d}.tif'
                     image_converted.Save(filename)
 
-                ## This is the numpy array result to return.
-                image_set[:,:,i] = image_result.GetNDArray()
+                ## This is the numpy array result to return. Flip up-down to fit bottom-left origin display.
+                image_set[:,:,i] = array(image_result.GetNDArray())[::-1,:]
+                #print(i, f'amin(image_set[:,:,i])={amin(image_set[:,:,i]):.1f}, amax(image_set[:,:,i])={amax(image_set[:,:,i]):.1f}')
 
                 ## Release image. Images retrieved directly from the camera (i.e. non-converted
                 ## images) need to be released in order to keep from filling the buffer.
@@ -706,7 +712,6 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
                 #width = image_result.GetWidth()
                 #height = image_result.GetHeight()
                 #fmt = image_result.GetPixelFormatName()
-                ts = image_result.GetTimeStamp()
                 #msg = 'Grabbed Image width=%d, height=%d, fmt=%s, timestamp(ns)=%d' % (width, height, fmt, ts)
 
                 if filename:
