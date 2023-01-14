@@ -2,13 +2,12 @@
 ## 1. When the "Live Data" button is OFF, enable a pushbutton that shows a popup Histogram of the current image.
 ##    It would really help to be able to zoom this histogram to check values.
 ## 2. Find out what "High Dynamic Range Mode" is on these cameras. Can we make use of it?
-## 3. And what is "Exposure Compensation Auto" anyway? Currently it is set always on. Do we need to turn it off?
 ## 4. If you want to be able to set the FrameRate manually, you will first have to set the "FrameRateAuto" to "Off".
 ## 5. Allow a user to save filenames using the timestamps instead of the file_counter.
 ## 6. Consider capturing error messages and sending them into the outputbox. The relevant code would look like:
 ##        except Exception as err_msg:
 ##            self.outputbox.appendPlainText(err_msg)
-## 7. Try connecting your FLIR microbolometer camera and see if it works with the Spinnaker library. If it doesn't, you will want to use the 
+## 7. Try connecting your FLIR Ax5 microbolometer camera and see if it works with the Spinnaker library. If it doesn't, you will want to use the 
 ##    "Mono14" pixel format rather than "Mono16". With the latter, you will need to shift the image data down 2 bits (i.e. divide by 4) to 
 ##    get the correct 14-bit result.
 ## 8. Make another version of the interface based on two cameras operating simultaneously. Nice for UV-VIS or VIS-NIR dual camera use.
@@ -36,7 +35,7 @@ mpl.rcParams['image.origin'] = 'lower'  ## set the lower left corner to be the (
 import numpy
 from numpy import (pi, array, asarray, linspace, indices, amin, amax, sqrt, exp, mean, std, nan, NaN,
                    logical_and, zeros, uint8, mgrid, ones, uint32, load, float32, where, arange, uint16,
-                   logical_or, log, savez, empty, reshape, ndim, cos, rint, log2)
+                   logical_or, log, savez, empty, reshape, ndim, cos, rint, log2, sort)
 numpy.seterr(all='raise')
 numpy.seterr(invalid='ignore')
 
@@ -44,6 +43,7 @@ import struct, time, os, sys
 from imageio import imread, imsave
 import PySpin
 import flir_spin_library as fsl
+from glob import glob
 
 ## ===========================================================================================================
 class MPLCanvas(FigureCanvas):
@@ -466,6 +466,10 @@ class MainWindow(QMainWindow):
         if not fsl.set_autoexposure_off(self.nodemap, verbose=False):
             self.outputbox.appendPlainText(f'Failed to turn autoexposure off!')
 
+        ## If "exposure compensation" exists on this camera, then turn it off. If it doesn't exist, then skip.
+        if not fsl.set_exposure_compensation_off(self.nodemap, verbose=False):
+            pass
+
         if not fsl.set_pixel_format(self.nodemap, 'Mono16', verbose=False):
             self.outputbox.appendPlainText(f'Failed to set the pixel format to Mono16!')
 
@@ -827,7 +831,7 @@ class MainWindow(QMainWindow):
         if (nframes == 1):
             ## Note: the "file_counter" is what we use to keep track of all images saved so far in this session, so that we don't
             ## overwrite previous files. The "fileSave()" function keep track of incrementing this value each time it is called.
-            filename = f'{file_dir}{file_prefix}_{self.file_counter:04}.{file_suffix}'
+            filename = f'{file_dir}{file_prefix}_{self.file_counter:05}.{file_suffix}'
             self.fileSave(filename)
         elif (nframes > 1):
             ## First turn off the live stream capture. Turn it back on when done.
@@ -848,7 +852,7 @@ class MainWindow(QMainWindow):
                 ## overwrite previous files. The "fileSave()" function keep track of incrementing this value each time it is called.
                 nframes = video.shape[2]
                 for n in range(nframes):
-                    filename = f'{file_dir}{file_prefix}_{self.file_counter:04}.{file_suffix}'
+                    filename = f'{file_dir}{file_prefix}_{self.file_counter:05}.{file_suffix}'
                     self.fileSave(filename)
 
             if initial_state_is_live:
