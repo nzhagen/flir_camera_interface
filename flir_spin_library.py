@@ -750,6 +750,86 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
     return(image_data, ts)
 
 ## ====================================================================================
+def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_suffix='raw', start_num=0, verbose=False):
+    """
+    This function acquires and saves N images, in RAW format, from a device.
+
+    :param cam: Camera to acquire images from.
+    :param nodemap: Device nodemap.
+    :param nodemap_tldevice: Transport layer device nodemap.
+    :type cam: CameraPtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+    (image_width, image_height) = get_image_width_height(nodemap, verbose=False)
+
+    try:
+        ## Set acquisition mode to continuous.
+        ## In order to access the node entries, they have to be casted to a pointer type (CEnumerationPtr here)
+        node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode('AcquisitionMode'))
+        if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
+            print('Unable to set acquisition mode to continuous (enum retrieval). Aborting...')
+            return(None, 0)
+
+        ## Retrieve entry node from enumeration node
+        node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName('Continuous')
+        if not PySpin.IsAvailable(node_acquisition_mode_continuous) or not PySpin.IsReadable(node_acquisition_mode_continuous):
+            print('Unable to set acquisition mode to continuous (entry retrieval). Aborting...')
+            return(None, 0)
+
+        ## Retrieve integer value from entry node
+        acquisition_mode_continuous = node_acquisition_mode_continuous.GetValue()
+
+        ## Set integer value from entry node as new value of enumeration node
+        node_acquisition_mode.SetIntValue(acquisition_mode_continuous)
+
+        ## Begin acquiring images. Image acquisition must be ended when no more images are needed.
+        cam.BeginAcquisition()
+
+        ## Retrieve, convert, and save images
+        for i in range(num_images):
+            filename = f'{file_dir}{file_prefix}_{start_num+i:05}.{file_suffix}'
+
+            try:
+                ## Retrieve the next received image. Capturing an image houses images on the camera buffer. Trying to
+                ## capture an image that does not exist will hang the camera. Once an image from the buffer is saved
+                ## and/or no longer needed, the image must be released in order to keep the buffer from filling up.
+                image_result = cam.GetNextImage(1000)
+
+                ## Ensure image completion. This should be done whenever a complete image is expected or required.
+                if image_result.IsIncomplete():
+                    print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
+                    continue
+                else:
+                    if filename.endswith('raw') and (image_result.GetPixelFormatName() == 'Mono16'):
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
+                    else:
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                    image_converted.Save(filename)
+                   
+                    if verbose:
+                        print(f'Saved "{filename}": ts={image_result.GetTimeStamp()}')
+
+                ## Release image. Images retrieved directly from the camera (i.e. non-converted
+                ## images) need to be released in order to keep from filling the buffer.
+                image_result.Release()
+
+            except PySpin.SpinnakerException as ex:
+                print('Error: %s' % ex)
+                return(None, 0)
+
+        ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
+        ## properly and do not need to be power-cycled to maintain integrity.
+        cam.EndAcquisition()
+    
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return(None, 0)
+
+    return
+
+## ====================================================================================
 def get_image_minmax(nodemap, verbose=False):
     """
     Retrieves the maximum width and height of the image.
