@@ -185,19 +185,7 @@ class MainWindow(QMainWindow):
         self.file_suffix_label = QLabel('File suffix:')
         self.file_dir_editbox = QLineEdit('')
         self.file_prefix_editbox = QLineEdit('image')
-        self.file_suffix_editbox = QLineEdit('tif')
-
-        self.file_dir_hlt = QHBoxLayout()
-        self.file_dir_hlt.addWidget(self.file_dir_label)
-        self.file_dir_hlt.addWidget(self.file_dir_editbox)
-
-        self.file_prefix_hlt = QHBoxLayout()
-        self.file_prefix_hlt.addWidget(self.file_prefix_label)
-        self.file_prefix_hlt.addWidget(self.file_prefix_editbox)
-
-        self.file_suffix_hlt = QHBoxLayout()
-        self.file_suffix_hlt.addWidget(self.file_suffix_label)
-        self.file_suffix_hlt.addWidget(self.file_suffix_editbox)
+        self.file_suffix_editbox = QLineEdit('raw')
 
         self.save_nframes_label = QLabel('# video frames: ')
         self.save_nframes_spinbox = QSpinBox()
@@ -205,7 +193,23 @@ class MainWindow(QMainWindow):
         self.save_nframes_spinbox.setValue(1)
         self.save_nframes_spinbox.setSingleStep(1)
         self.save_nframes_button = QPushButton('Save Frame(s)')
-        self.save_nframes_button.clicked.connect(self.save_video_sequence)
+        #self.save_nframes_button.clicked.connect(self.save_video_sequence)
+        self.save_nframes_button.clicked.connect(self.fastsave_video)
+
+        self.convert_video_button = QPushButton('Convert all frames in dir to video')
+        self.convert_video_button.clicked.connect(self.convert_frames_to_movie)
+
+        self.file_dir_hlt = QHBoxLayout()
+        self.file_dir_hlt.addWidget(self.file_dir_label)
+        self.file_dir_hlt.addWidget(self.file_dir_editbox)
+        self.file_dir_hlt.addWidget(self.save_nframes_label)
+        self.file_dir_hlt.addWidget(self.save_nframes_spinbox)
+
+        self.file_prefix_hlt = QHBoxLayout()
+        self.file_prefix_hlt.addWidget(self.file_prefix_label)
+        self.file_prefix_hlt.addWidget(self.file_prefix_editbox)
+        self.file_prefix_hlt.addWidget(self.file_suffix_label)
+        self.file_prefix_hlt.addWidget(self.file_suffix_editbox)
 
         self.boldfont = QFont()
         self.boldfont.setBold(True)
@@ -271,9 +275,8 @@ class MainWindow(QMainWindow):
         self.camera_group.setStyleSheet('QGroupBox { font-weight: bold; font-size: 14px; } ')
 
         self.hlt_saveframes = QHBoxLayout()
-        self.hlt_saveframes.addWidget(self.save_nframes_label)
-        self.hlt_saveframes.addWidget(self.save_nframes_spinbox)
         self.hlt_saveframes.addWidget(self.save_nframes_button)
+        self.hlt_saveframes.addWidget(self.convert_video_button)
 
         self.cam_frate_hlt = QHBoxLayout()
         self.cam_frate_hlt.addWidget(self.framerate_label)
@@ -348,7 +351,6 @@ class MainWindow(QMainWindow):
         self.vlt1.addWidget(self.saturation_checkbox)
         self.vlt1.addLayout(self.file_dir_hlt)
         self.vlt1.addLayout(self.file_prefix_hlt)
-        self.vlt1.addLayout(self.file_suffix_hlt)
         self.vlt1.addLayout(self.hlt_saveframes)
         self.vlt1.addWidget(self.cam_label)
         self.vlt1.addLayout(self.cam_frate_hlt)
@@ -857,6 +859,77 @@ class MainWindow(QMainWindow):
 
             if initial_state_is_live:
                 self.live_checkbox.setChecked(True)
+
+        return
+
+    ## ===================================
+    def fastsave_video(self):
+        num_images = self.save_nframes_spinbox.value()
+
+        file_dir = self.file_dir_editbox.text()
+        if not file_dir:
+            file_dir = self.cwd
+        elif (file_dir[-1] not in ('/','\\')):
+            file_dir += '/'
+        file_dir = file_dir.replace('\\', '/')
+        if not file_dir.endswith('/'):
+            file_dir += '/'
+
+        file_prefix = self.file_prefix_editbox.text()
+        file_suffix = self.file_suffix_editbox.text()
+
+        initial_state_is_live = self.live_checkbox.isChecked()
+        if initial_state_is_live:
+            self.live_checkbox.setChecked(False)
+
+        fsl.video_fastsave(self.camera, self.nodemap, num_images, file_dir, file_prefix, file_suffix, start_num=self.file_counter, verbose=True)
+        self.file_counter += num_images
+
+        if initial_state_is_live:
+            self.live_checkbox.setChecked(True)
+
+        return
+        
+    ## ===================================
+    def convert_frames_to_movie(self):
+        file_dir = self.file_dir_editbox.text()
+        if not file_dir:
+            file_dir = self.cwd
+        elif (file_dir[-1] not in ('/','\\')):
+            file_dir += '/'
+        file_dir = file_dir.replace('\\', '/')
+        if not file_dir.endswith('/'):
+            file_dir += '/'
+
+        file_suffix = self.file_suffix_editbox.text()
+        files = sort(glob(f'{file_dir}*.{file_suffix}'))
+        if (len(files) == 0):
+            self.outputbox.appendPlainText(f'No "{file_suffix}" files found in folder "{file_dir}"')
+            return
+        
+        ## Collect a list of the image frames to generate the video. Not the fastest way to do this, but it's probably 
+        ## not a time-sensitive thing.
+        image_list = []
+        for file in files:
+            if (file_suffix == 'raw'):
+                img = fsl.read_binary_image(file, self.Nx, self.Ny)
+            else:
+                img = imread(file)
+                
+            image_list.append(img)
+
+        ## Use matplotlib to animate the frames.
+        import matplotlib.animation as animation
+        frame_list = []         # for storing the generated figure frames
+        fig = plt.figure(figsize=(18,15))
+        plt.tight_layout()
+        for i in range(len(files)):
+            frame_list.append([plt.imshow(image_list[i], cmap='gray', animated=True)])
+        
+        true_framerate = fsl.get_framerate(self.nodemap)
+        replay_framerate = 15.0
+        ani = animation.ArtistAnimation(fig, frame_list, interval=int(1000.0/framerate), blit=True, repeat_delay=1000)
+        ani.save('movie.mp4')
 
         return
 
