@@ -653,7 +653,7 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
                     if filename.endswith('raw') and (image_result.GetPixelFormatName() == 'Mono16'):
                         image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
                     else:
-                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     filename = f'{i:05d}.tif'
                     image_converted.Save(filename)
 
@@ -719,7 +719,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
                     if filename.endswith('raw') and (image_result.GetPixelFormatName() == 'Mono16'):
                         image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
                     else:
-                    image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_converted.Save(filename)
                     if verbose:
                         print(msg + ', Image saved as: %s' % filename)
