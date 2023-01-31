@@ -139,13 +139,13 @@ class MainWindow(QMainWindow):
 
         fileOpenAction = self.createAction("&Open File", self.fileOpen, QKeySequence.Open, "fileopen", "Load an image")
         fileSaveAction = self.createAction("&Save Image", self.fileSave, QKeySequence.Save, "filesave", "Save an image")
-        videoSaveAction = self.createAction("Save &Video Sequence", self.save_video_sequence, QKeySequence.Paste, "videosave", "Save a video sequence")
+        #videoSaveAction = self.createAction("Save &Video Sequence", self.save_video_sequence, QKeySequence.Paste, "videosave", "Save a video sequence")
         fileQuitAction = self.createAction("&Quit", self.close, "Ctrl+Q", "quit", "Close the application")
 
         self.mb = self.menuBar()
         self.mb.setObjectName('menubar')
         self.fileMenu = self.mb.addMenu('&File')
-        self.addActions(self.fileMenu, (fileOpenAction, fileSaveAction, videoSaveAction, fileQuitAction))
+        self.addActions(self.fileMenu, (fileOpenAction, fileSaveAction, fileQuitAction))
 
         self.mainframe = QFrame(self)
         self.setCentralWidget(self.mainframe)
@@ -234,6 +234,7 @@ class MainWindow(QMainWindow):
         if (self.ncameras > 0) and self.live_checkbox.isChecked():
             self.exposure_spinbox.setRange(uint32(self.min_exposure),uint32(self.max_exposure))
             self.exposure_spinbox.valueChanged.connect(self.exposureChange)
+            self.outputbox.appendPlainText(f'Allowed exposure time min={self.min_exposure:.0f}, max={self.max_exposure:.0f}')
         else:
             self.exposure_spinbox.setEnabled(False)
             self.exposure_label.setStyleSheet('color: rgba(125, 125, 125, 1);')
@@ -729,7 +730,7 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def fileOpen(self):
-        (filename, ok) = QFileDialog.getOpenFileName(self, 'Load an image', '', 'Images (*.png *.jpg *.tif *.tiff *.npz)')
+        (filename, ok) = QFileDialog.getOpenFileName(self, 'Load an image', '', 'Images (*.png *.jpg *.tif *.tiff *.npz, *.raw)')
         if not filename:
             return
 
@@ -751,23 +752,35 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def fileSave(self, filename=''):
+    def fileSave(self, filename='', verbose=True):
         if not filename:
             (filename,ok) = QFileDialog.getSaveFileName(self, "Save image to a file", '000000.tif')
             if not filename:
                 return
 
         suffix = os.path.splitext(filename)[1][1:]
+        
+        if verbose:
         self.outputbox.appendPlainText(f'Saving "{filename}"')
-        if suffix in ('jpg','png'):
-            img8bit = uint8(self.image[::-1,:] * 255.0 / amax(self.image))
-            imsave(filename, img8bit)
-        elif suffix in ('tif','tiff'):
-            imsave(filename, self.image[::-1,:])
-        elif suffix == 'npz':
-            savez(filename, image=self.image)
 
-        self.file_counter += 1
+        ## Currently I don't have saving to *.raw format working for single frames. Redirect to these to *.tif.
+
+        try:
+            if suffix in ('jpg','png'):
+                img8bit = uint8(self.image[::-1,:] * 255.0 / amax(self.image))
+                imsave(filename, img8bit)
+            elif suffix in ('tif','tiff'):
+                imsave(filename, self.image[::-1,:])
+                elif suffix == 'raw':
+                    new_filename = filename[:-4]+'.tif'
+                    self.outputbox.appendPlainText(f'Saving to RAW is not yet available for single frames. Changing to TIF: "{new_filename}"')
+                    imsave(new_filename, self.image[::-1,:])
+            elif suffix == 'npz':
+                savez(filename, image=self.image)
+
+            self.file_counter += 1
+        except Exception as err:
+            self.outputbox.appendPlainText(f'Failed to save image! Error message:\n    {err}')
 
         return
 
@@ -787,8 +800,6 @@ class MainWindow(QMainWindow):
                 if img_set is None:
                     return(None)
                 self.image = uint32(mean(img_set, axis=2)) // 16   ## Divide by 16 to remove the 4 extra bits going from 16-bit to 12-bit data
-                self.outputbox.appendPlainText(f'img_set.shape={img_set.shape}, amax(image)={amax(self.image):.0f}')
-                print(f'amin(img_set[:,:,0])={amin(img_set[:,:,0]):.1f}, amax(img_set[:,:,0])={amax(img_set[:,:,0]):.1f}, amin(img_set[:,:,1])={amin(img_set[:,:,1]):.1f}, amax(img_set[:,:,1])={amax(img_set[:,:,1]):.1f}')
                 self.ts = ts_set[0]
             return(self.image)
         elif (nframes > 1):
