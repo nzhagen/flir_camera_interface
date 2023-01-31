@@ -185,7 +185,7 @@ class MainWindow(QMainWindow):
         self.file_suffix_label = QLabel('File suffix:')
         self.file_dir_editbox = QLineEdit('')
         self.file_prefix_editbox = QLineEdit('image')
-        self.file_suffix_editbox = QLineEdit('raw')
+        self.file_suffix_editbox = QLineEdit('tif')
 
         self.save_nframes_label = QLabel('# video frames: ')
         self.save_nframes_spinbox = QSpinBox()
@@ -864,7 +864,7 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def fastsave_video(self):
-        num_images = self.save_nframes_spinbox.value()
+        nframes = self.save_nframes_spinbox.value()
 
         file_dir = self.file_dir_editbox.text()
         if not file_dir:
@@ -878,12 +878,19 @@ class MainWindow(QMainWindow):
         file_prefix = self.file_prefix_editbox.text()
         file_suffix = self.file_suffix_editbox.text()
 
+        if (nframes == 1):
+            ## Note: the "file_counter" is what we use to keep track of all images saved so far in this session, so that we don't
+            ## overwrite previous files. The "fileSave()" function keep track of incrementing this value each time it is called.
+            filename = f'{file_dir}{file_prefix}_{self.file_counter:05}.{file_suffix}'
+            self.fileSave(filename)
+            return
+
         initial_state_is_live = self.live_checkbox.isChecked()
         if initial_state_is_live:
             self.live_checkbox.setChecked(False)
 
-        fsl.video_fastsave(self.camera, self.nodemap, num_images, file_dir, file_prefix, file_suffix, start_num=self.file_counter, verbose=True)
-        self.file_counter += num_images
+        fsl.video_fastsave(self.camera, self.nodemap, nframes, file_dir, file_prefix, file_suffix, start_num=self.file_counter, verbose=True)
+        self.file_counter += nframes
 
         if initial_state_is_live:
             self.live_checkbox.setChecked(True)
