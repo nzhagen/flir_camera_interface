@@ -1,19 +1,13 @@
 ## TODO:
 ## 1. When the "Live Data" button is OFF, enable a pushbutton that shows a popup Histogram of the current image.
 ##    It would really help to be able to zoom this histogram to check values.
-## 2. Find out what "High Dynamic Range Mode" is on these cameras. Can we make use of it?
-## 4. If you want to be able to set the FrameRate manually, you will first have to set the "FrameRateAuto" to "Off".
-## 5. Allow a user to save filenames using the timestamps instead of the file_counter.
-## 6. Consider capturing error messages and sending them into the outputbox. The relevant code would look like:
+## 2. If you want to be able to set the FrameRate manually, you will first have to set the "FrameRateAuto" to "Off".
+## 3. Allow a user to save filenames using the timestamps instead of the file_counter.
+## 4. Consider capturing error messages and sending them into the outputbox. The relevant code would look like:
 ##        except Exception as err_msg:
 ##            self.outputbox.appendPlainText(err_msg)
-## 7. Try connecting your FLIR Ax5 microbolometer camera and see if it works with the Spinnaker library. If it doesn't, you will want to use the 
-##    "Mono14" pixel format rather than "Mono16". With the latter, you will need to shift the image data down 2 bits (i.e. divide by 4) to 
-##    get the correct 14-bit result.
-## 8. Make another version of the interface based on two cameras operating simultaneously. Nice for UV-VIS or VIS-NIR dual camera use.
-## 9. Currently the video saving is quite slow. Doing the saving inside the PySpin library would be much faster, but their examples only show
-##    8 bit data. But maybe you can figure out how to save the raw bytestream, and then figure out how to decode the raw bytes from each file?
-                
+## 5. Make another version of the interface based on two cameras operating simultaneously. Nice for UV-VIS or VIS-NIR dual camera use.
+
 from PyQt5.QtCore import QTimer, Qt, QRect
 from PyQt5.QtGui import QKeySequence, QIcon, QColor, QFont
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QMainWindow, QSizePolicy, QWidget, QVBoxLayout, QMenuBar, QStatusBar,
@@ -119,7 +113,7 @@ class MainWindow(QMainWindow):
         self.lctf_currentwave = self.lctf_wavelist[self.lctf_wave_counter]    ## the current wavelength
 
         ## Make a custom colormap where the maximum value is changed from white to red.
-        ## Why -8? I tried -7 and it wasn't enough. Note, however, that if the colorbar range are changed, then this 
+        ## Why -8? I tried -7 and it wasn't enough. Note, however, that if the colorbar range are changed, then this
         ## '-8' no longer is the best choice. How to fix?
         grey = cm.get_cmap('gray', 256)
         newcolors = grey(linspace(0, 1, self.cam_saturation_level))
@@ -399,7 +393,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event=None):
         ## Release the camera object.
         if (self.ncameras > 0):
-            ## Release reference to camera. We cannot rely on pointer objects being automatically cleaned up 
+            ## Release reference to camera. We cannot rely on pointer objects being automatically cleaned up
             ## when going out of scope. The usage of "del" is preferred to assigning the variable to None.
             del self.camera
 
@@ -487,7 +481,7 @@ class MainWindow(QMainWindow):
         self.image_maxheight = img_minmax[3]
         if (sum(array(img_minmax)) == 0):
             self.outputbox.appendPlainText(f'Failed to read the allowed image sizes from the camera!')
-        
+
         fsl.set_autogain_off(self.nodemap, verbose=False)
         fsl.set_exposure_time(self.nodemap, self.exposure, verbose=False)
         self.framerate = fsl.get_framerate(self.nodemap, verbose=False)
@@ -497,7 +491,7 @@ class MainWindow(QMainWindow):
             self.outputbox.appendPlainText(f'Failed to read the allowed exposure range!')
 
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
-        
+
         return
 
     ## ===================================
@@ -600,7 +594,7 @@ class MainWindow(QMainWindow):
                 new_exposure = self.max_exposure
             if (new_exposure < self.min_exposure):
                 new_exposure = self.min_exposure
-            
+
             self.exposure = new_exposure
             self.exposure_spinbox.setValue(new_exposure)
             #new_exposure_in_usec = new_exposure * 1000
@@ -759,7 +753,7 @@ class MainWindow(QMainWindow):
                 return
 
         suffix = os.path.splitext(filename)[1][1:]
-        
+
         if verbose:
         self.outputbox.appendPlainText(f'Saving "{filename}"')
 
@@ -788,7 +782,7 @@ class MainWindow(QMainWindow):
     def capture_image(self, nframes=1, verbose=False):
         if not hasattr(self, 'camera'):
             return(None)
-        
+
         if (nframes == 1):
             if (self.navgs == 1):
                 (self.image, self.ts) = fsl.acquire_one_image(self.camera, self.nodemap)
@@ -825,7 +819,7 @@ class MainWindow(QMainWindow):
             return(video)
         else:
             raise ValueError('How did we get here?')
-        
+
         return(None)
 
     ## ===================================
@@ -907,7 +901,7 @@ class MainWindow(QMainWindow):
             self.live_checkbox.setChecked(True)
 
         return
-        
+
     ## ===================================
     def convert_frames_to_movie(self):
         file_dir = self.file_dir_editbox.text()
@@ -924,8 +918,8 @@ class MainWindow(QMainWindow):
         if (len(files) == 0):
             self.outputbox.appendPlainText(f'No "{file_suffix}" files found in folder "{file_dir}"')
             return
-        
-        ## Collect a list of the image frames to generate the video. Not the fastest way to do this, but it's probably 
+
+        ## Collect a list of the image frames to generate the video. Not the fastest way to do this, but it's probably
         ## not a time-sensitive thing.
         image_list = []
         for file in files:
@@ -933,7 +927,7 @@ class MainWindow(QMainWindow):
                 img = fsl.read_binary_image(file, self.Nx, self.Ny)
             else:
                 img = imread(file)
-                
+
             image_list.append(img)
 
         ## Use matplotlib to animate the frames.
@@ -943,7 +937,7 @@ class MainWindow(QMainWindow):
         plt.tight_layout()
         for i in range(len(files)):
             frame_list.append([plt.imshow(image_list[i], cmap='gray', animated=True)])
-        
+
         true_framerate = fsl.get_framerate(self.nodemap)
         replay_framerate = 15.0
         ani = animation.ArtistAnimation(fig, frame_list, interval=int(1000.0/framerate), blit=True, repeat_delay=1000)
@@ -973,7 +967,7 @@ class MainWindow(QMainWindow):
 
         self.binning = self.binning_spinbox.value()
         self.outputbox.appendPlainText(f'Setting binning = {self.binning}')
-        
+
         ## Now that the binning has changed, modify the image size, and update the statusbar string.
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
         self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
@@ -984,7 +978,7 @@ class MainWindow(QMainWindow):
     def initialize_projector(self):
         if self.has_fpp:
             return
-            
+
         import slmpy
 
         try:
@@ -1005,14 +999,14 @@ class MainWindow(QMainWindow):
         ## Make a set of coordinates for generating the fringe patterns for projection.
         (self.proj_xcoord,self.proj_ycoord) = indices((self.resX,self.resY))
 
-        self.project_next_image()
+        self.project_image()
         self.has_fpp = True
         self.save_fppdata_button.setEnabled(True)
 
         return
 
     ## ===================================
-    def project_next_image(self):
+    def project_image(self):
         ## If the current phase is equal to "nphases" then this is the same thing as setting it to zero.
         if (self.phasenum >= self.nphases):
             self.phasenum = 0
@@ -1039,13 +1033,17 @@ class MainWindow(QMainWindow):
         for shiftnum in range(self.nphases):
             self.phasenum = shiftnum
             phasevalue_deg = int(rint(360.0 * self.phasenum / self.nphases))
-            self.project_next_image()
+            self.project_image()
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
                 return
             else:
                 self.image = img
+
+            ## Return to the phase zero position.
+            self.phasenum = 0
+            self.project_image()
 
             filename = f'{file_dir}{file_prefix}_{phasevalue_deg:03}.{file_suffix}'
             self.fileSave(filename)
