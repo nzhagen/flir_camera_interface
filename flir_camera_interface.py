@@ -1047,6 +1047,7 @@ class MainWindow(QMainWindow):
 
             filename = f'{file_dir}{file_prefix}_{phasevalue_deg:03}.{file_suffix}'
             self.fileSave(filename)
+            self.outputbox.appendPlainText(f'FPP image collection is complete.')
 
         return
 
@@ -1107,6 +1108,7 @@ class MainWindow(QMainWindow):
 
             filename = f'{file_dir}{file_prefix}_{wavevalue_nm:03}.{file_suffix}'
             self.fileSave(filename)
+            self.outputbox.appendPlainText(f'LCTF image collection is complete.')
 
         return
 
