@@ -1,0 +1,210 @@
+Spinnaker Library version: 2.5.0.80
+Number of cameras detected: 1
+CAMERA #0 STATUS:
+ transport_layer_devices:
+         Device Information:
+                 Device ID:USB\VID_1E10&PID_3300&MI_00\7&294010A9&0&0000
+                 Device Serial Number:22562259
+                 Device Vendor Name  :Point Grey Research
+                 Device Model Name:Blackfly BFLY-U3-23S6M
+                 Device Type:USB3Vision
+                 Device Display Name:Point Grey Research Blackfly BFLY-U3-23S6M
+                 Device Access Status:OpenReadWrite
+                 Device Version:FW:v1.9.3.00 FPGA:v2.02
+                 Device Driver Version:PGRUSBCam.sys : 2.7.3.235
+                 Device User ID:
+                 Device Is Updater Mode:False
+                 DeviceInstanceId:USB\VID_1E10&PID_3300&MI_00\7&294010A9&0&0000
+                 Device Location:0005.0000.0003.007.000.000.000.000.000
+                 Device Current Speed:SuperSpeed
+                 GUI XML Source:Device
+                 GUI XML Path:Input.xml
+                 GenICam XML Source:Device
+                 GenICam XML Path:
+                 Device Is In U3V Protocol:True
+                 Device Port ID:7
+         Device Control:
+                 Device Endianness Mechanism:Standard
+ transport_layer_stream:
+         Stream Information:
+                 Stream ID  :0
+                 Stream Type:USB3Vision
+         Buffer Handling Control:
+                 Manual Stream Buffer Count:3
+                 Resulting Stream Buffer Count:3
+                 Stream Buffer Count Max:3
+                 Stream Buffer Count Mode:Manual
+                 Stream Buffer Handling Mode:OldestFirst
+                 Stream Announce Buffer Minimum:1
+                 Stream Announced Buffer Count:0
+                 Stream Started Frame Count:0
+                 Stream Delivered Frame Count:0
+                 Stream Lost Frame Count:0
+                 Stream Input Buffer Count:0
+                 Stream Output Buffer Count:0
+                 Stream Block Transfer Size:1048576
+                 CRC Check Enable:False
+                 Stream Is Grabbing:False
+                 Stream Chunk Count Maximum:50
+                 Stream Buffer Alignment:1
+                 Stream Dropped Frame Count:0
+         Stream Diagnostics:
+                 Failed Buffer Count:0
+ genicam_nodes:
+         Analog Control:
+                 Gain Selector:All
+                 Gain Auto:Continuous
+                 Gain:29.996417999267578
+                 Auto Gain Lower Limit:0.0
+                 Auto Gain Upper Limit:29.996417999267578
+                 Black Level:2.9296875
+                 Gamma:1.0
+                 Gamma Enabled:False
+                 Sharpness:512
+                 Sharpness Enabled:True
+                 Sharpness Auto:Continuous
+         Device Control:
+                 Vendor Name:Point Grey Research
+                 Model Name:Blackfly BFLY-U3-23S6M
+                 Device Version:FW:v1.9.3.00 FPGA:v2.02
+                 Device Serial Number:22562259
+                 Device ID:22562259
+                 Device User ID:
+                 Device Gen Cp Version Major:1
+                 Device Gen CP Version Minor:0
+                 Family Name:GEN2-USB
+                 U3V Device Capability:
+                         User Name Available:True
+                         Access Privilege Available:False
+                         Message Channel Supported:True
+                         Timestamp Supported:True
+                         String Encoding:0
+                         Family Register Available:True
+                         SBRM Supported:True
+                         Endianess Registers Supported:True
+                         Written Length Field Supported:True
+                 Timestamp:0
+                 Timestamp Increment:125000
+                 Sensor Description:Sony IMX249 (1/1.2" Mono CMOS)
+                 Device SVN Version:FW:277593 FPGA:245377
+                 Device Firmware Version:1.9.3.00
+                 Device Scan Type:Areascan
+                 Device Temperature:39.150000000000034
+                 Device Uptime:627
+                 Auto Function AOIs Control:Off
+                 Device Max Throughput:193536000
+                 Device Link Throughput Limit:193536000
+                 Test Pending Ack:0
+         Acquisition Control:
+                 Trigger Selector:FrameStart
+                 Trigger Mode:Off
+                 Trigger Source:Line0
+                 Trigger Activation:FallingEdge
+                 Trigger Delay:0.0
+                 Trigger Delay Enabled:False
+                 Exposure Mode:Timed
+                 Exposure Auto:Continuous
+                 Exposure Time:23872.673511505127
+                 Exposure Time Abs:23872.673511505127
+                 Auto Exposure Lower Limit:19.19269561767578
+                 Auto Exposure Upper Limit:23872.673511505127
+                 Exposure Compensation Auto:Off
+                 Exposure Compensation:0.84130859375
+                 Auto Exposure Compensation Lower Limit:0.4150390625
+                 Auto Exposure Compensation Upper Limit:2.0
+                 Acquisition Mode:Continuous
+                 Frame Rate Auto:Off
+                 Acquisition Frame Rate Control Enabled:True
+                 Acquisition Frame Rate:41.534141540527344
+                 Acquisition Status Selector:FrameTriggerWait
+                 Acquisition Status:False
+                 Single Frame Acquisition Mode:FreeRunning
+                 High Dynamic Range Mode Enabled:False
+         Image Format Control:
+                 Pixel Format:Mono16
+                 Pixel Coding:Mono
+                 Width:1920
+                 Height:1200
+                 Offset X:0
+                 Offset Y:0
+                 Sensor Width:1920
+                 Sensor Height:1200
+                 Max Width:1920
+                 Max Height:1200
+                 Video Mode:Mode0
+                 Binning Horizontal:1
+                 Binning Vertical:1
+                 Reverse X:False
+                 Pixel Size:Bpp16
+                 Pixel Color Filter:None
+                 Pixel Dynamic Range Min:0
+                 Pixel Dynamic Range Max:0
+                 Test Image Selector:Off
+                 Test Pattern:Off
+                 PixelDefectControl:
+                         Defect Pixel Correction Type:FPGACorrection
+                         Defect Pixel Correction Enable:True
+                         Defect Pixel Correction Test Mode:Off
+                         Current Corrected Pixel Count:8
+                         Current Corrected Pixel Index:0
+                         Current Corrected Pixel Offset X:208
+                         Current Corrected Pixel Offset Y:293
+         User Set Control:
+                 Current User Set:0
+                 User Set Selector:Default
+                 User Set Default:Default
+                 Default User Set:Default
+         Data Flash Control:
+                 Data Flash Page Size:256
+                 Data Flash Page Count:4096
+                 Active Page Number:0
+                 Active Page Offset:0
+                 Active Page Value:4294967295
+         Digital I/O Control:
+                 Line Selector:Line0
+                 Line Mode:Input
+                 Line Debouncer Time Raw:0
+                 Line Status:False
+                 Line Status All:0
+                 User Output Selector:UserOutputValue1
+                 3.3V Enable:False
+         LUT Control :
+         Transport Layer Control:
+                 Max Response Time:480
+                 Device Configuration High:0
+                 Device Configuration Low:0
+                 Message Channel:0
+                 Access Privilege:0
+                 U3V Version Major:1
+                 U3V Version Minor:0
+                 U3V Capability:0
+                 U3V SIRM Available:True
+                 U3V EIRM Available:True
+                 U3V IIDC2 Available:False
+                 U3V Capability High:0
+                 U3V Capability Low:0
+                 U3V Configuration High:0
+                 U3V Configuration Low:0
+                 Max Command Transfer Length:1024
+                 Max Ack Transfer Length:1024
+                 Number of Stream Channels:1
+                 Current Speed:SuperSpeed
+                 TLParamsLocked:0
+                 Payload Size:4608000
+                 Transmit Failure Count:0
+                 USB3 Link Recovery Count:0
+         Chunk Data Control:
+                 Chunk Mode Active:False
+                 Chunk Selector:FrameCounter
+                 Chunk Enable:False
+         Event Control:
+                 Event Selector:ExposureEnd
+                 Event Notification:Off
+                 Event Exposure End Data:
+                 Event Test Data:
+         Remove Parameter Limits:
+                 Parameter Selector:Gain
+                 Remove Limits:False
+         User Defined Values:
+                 User Defined Value Selector:Value1
+                 User Defined Value:0
