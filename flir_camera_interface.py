@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QMainWindow, QSizePolic
                              QDoubleSpinBox, QDialogButtonBox, QLineEdit, QLabel, QDesktopWidget, QPushButton, QFormLayout)
 
 ## import the Qt5Agg figure canvas object, that binds figures to the Qt5Agg backend. It also inherits from QWidget.
+import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -115,7 +116,7 @@ class MainWindow(QMainWindow):
         ## Make a custom colormap where the maximum value is changed from white to red.
         ## Why -8? I tried -7 and it wasn't enough. Note, however, that if the colorbar range are changed, then this
         ## '-8' no longer is the best choice. How to fix?
-        grey = cm.get_cmap('gray', 256)
+        grey = matplotlib.colormaps['gray']
         newcolors = grey(linspace(0, 1, self.cam_saturation_level))
         #newcolors[255,:] = array([1,0,0,1])      ## red color with alpha=1
         newcolors[-8:,:] = array([1,0,0,1])      ## red color with alpha=1
