@@ -181,6 +181,9 @@ class MainWindow(QMainWindow):
         self.file_dir_editbox = QLineEdit('')
         self.file_prefix_editbox = QLineEdit('image')
         self.file_suffix_editbox = QLineEdit('tif')
+        self.file_dir_editbox.textChanged.connect(self.saveDirChanged)
+        self.file_prefix_editbox.textChanged.connect(self.savePrefixChanged)
+        self.file_suffix_editbox.textChanged.connect(self.saveSuffixChanged)
 
         self.save_nframes_label = QLabel('# video frames: ')
         self.save_nframes_spinbox = QSpinBox()
@@ -822,6 +825,24 @@ class MainWindow(QMainWindow):
             raise ValueError('How did we get here?')
 
         return(None)
+
+    ## ===================================
+    def saveDirChanged(self, text):
+        ## If the basename of the file to save has changed, then reset the file counter.
+        self.file_counter = 0
+        return
+
+    ## ===================================
+    def savePrefixChanged(self, text):
+        ## If the basename of the file to save has changed, then reset the file counter.
+        self.file_counter = 0
+        return
+
+    ## ===================================
+    def saveSuffixChanged(self, text):
+        ## If the basename of the file to save has changed, then reset the file counter.
+        self.file_counter = 0
+        return
 
     ## ===================================
     def save_video_sequence(self):
