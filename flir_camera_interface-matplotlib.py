@@ -9,7 +9,7 @@
 ## 5. Make another version of the interface based on two cameras operating simultaneously. Nice for UV-VIS or VIS-NIR dual camera use.
 
 from PyQt5.QtCore import QTimer, Qt, QRect
-from PyQt5.QtGui import QKeySequence, QIcon, QColor, QFont, QImage, QPixmap, QPainter
+from PyQt5.QtGui import QKeySequence, QIcon, QColor, QFont
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QMainWindow, QSizePolicy, QWidget, QVBoxLayout, QMenuBar, QStatusBar,
                              QHBoxLayout, QAction, QDialog, QFrame, QFileDialog, QGroupBox, QRadioButton, QGridLayout,
                              QTabWidget, QLabel, QCheckBox, QSpinBox, QPlainTextEdit, QMessageBox, QErrorMessage,
@@ -26,12 +26,11 @@ from matplotlib.colors import ListedColormap
 from mpl_toolkits.axes_grid1 import ImageGrid, make_axes_locatable
 import matplotlib as mpl
 mpl.rcParams['image.origin'] = 'lower'  ## set the lower left corner to be the (0,0) position for the image
-mpl.rcParams['image.cmap'] = 'gray'
 
 import numpy
 from numpy import (pi, array, asarray, linspace, indices, amin, amax, sqrt, exp, mean, std, nan, NaN,
                    logical_and, zeros, uint8, mgrid, ones, uint32, load, float32, where, arange, uint16,
-                   logical_or, log, savez, empty, reshape, ndim, cos, rint, log2, sort, unique)
+                   logical_or, log, savez, empty, reshape, ndim, cos, rint, log2, sort)
 numpy.seterr(all='raise')
 numpy.seterr(invalid='ignore')
 
@@ -40,8 +39,6 @@ from imageio import imread, imsave
 import PySpin
 import flir_spin_library as fsl
 from glob import glob
-
-#print(dir(QImage))
 
 ## ===========================================================================================================
 class MPLCanvas(FigureCanvas):
@@ -81,38 +78,10 @@ class MPLWidget(QWidget):
         self.setLayout(self.vbl)
 
 ## ===========================================================================================================
-class CustomDialog(QDialog):
-    def __init__(self, image):
-        super().__init__()
-        self.image = image[::-1,:]
-        
-        #self.setWindowTitle("HELLO!")
-        #QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        #self.buttonBox = QDialogButtonBox(QBtn)
-        #self.buttonBox.accepted.connect(self.accept)
-        #self.buttonBox.rejected.connect(self.reject)
-        self.layout = QVBoxLayout()
-        #message = QLabel("Something happened, is that OK?")
-        #self.layout.addWidget(message)
-        #self.layout.addWidget(self.buttonBox)
-
-        self.mplwidget = MPLWidget()
-        self.layout.addWidget(self.mplwidget)
-
-        mpl1 = self.mplwidget.canvas
-        self.img_obj = mpl1.ax.imshow(self.image)
-        self.cb = mpl1.fig.colorbar(self.img_obj, shrink=0.85, pad=0.025)
-        mpl1.ax.axis('off')
-        mpl1.draw()
-        
-        self.setLayout(self.layout)        
-        
-## ===========================================================================================================
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
-        #self.resize(gui_width, gui_height)
-        self.showMaximized()
+        self.resize(gui_width, gui_height)
 
         #self.setObjectName('MainWindow')
         self.image_counter = 0      ## the counter of the current image within the latest sequence
@@ -126,19 +95,11 @@ class MainWindow(QMainWindow):
         self.file_counter = 0       ## counter for incrementing the filenames
         self.exposure = 10000
         self.binning = 1
-        self.cropping = 0
         self.cam_bitdepth = 12 + uint16(log2(self.binning))      ## camera bit depth
         self.cam_saturation_level = (2**self.cam_bitdepth) - 1 - 7  ## why do we need '-7' here?!
         self.img_has_saturation = False
         self.outputbox = None       ## need to define this variable early to prevent error -- it gets redefined later
         self.cwd = os.getcwd()
-        self.timer_delay = 10       ## time in ms to delay before requesting a new image from the camera
-        self.autoscale_brightness = True        ## whether to automatically scale the display so the darkest pixel is black and the brightest is white
-        
-        ## Whether to use tone-mapping when converting from 12-bit to 8-bit for display. If the scale is 16 then use bit truncation rather than tone-mapping.
-        self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
-        #self.tone_mapping_scale = 16
-        self.img8bit = None         ## the 8-bit (tone-mapped) version of the raw image
 
         ## Fringe projection profilometry (FPP) stuff
         self.has_fpp = False        ## Is the FPP system activated?
@@ -151,6 +112,16 @@ class MainWindow(QMainWindow):
         self.lctf_wavelist = arange(420,730,10)     ## returns a list from 420 to 720 in increments of 10
         self.lctf_wave_counter = 0          ## counter for which element of wavelist is the current one
         self.lctf_currentwave = self.lctf_wavelist[self.lctf_wave_counter]    ## the current wavelength
+
+        ## Make a custom colormap where the maximum value is changed from white to red.
+        ## Why -8? I tried -7 and it wasn't enough. Note, however, that if the colorbar range are changed, then this
+        ## '-8' no longer is the best choice. How to fix?
+        grey = matplotlib.colormaps['gray']
+        newcolors = grey(linspace(0, 1, self.cam_saturation_level))
+        #newcolors[255,:] = array([1,0,0,1])      ## red color with alpha=1
+        newcolors[-8:,:] = array([1,0,0,1])      ## red color with alpha=1
+        self.satgrey = ListedColormap(newcolors)
+        #print(self.satgrey(linspace(0,1,self.cam_saturation_level)))
 
         ## Define the image scale for each image -- we will need these for the manual controls on the colorbars of each image.
         self.image_vmin_str = 'Min'
@@ -173,29 +144,22 @@ class MainWindow(QMainWindow):
 
         self.mainframe = QFrame(self)
         self.setCentralWidget(self.mainframe)
-        
+        self.mplwidget = MPLWidget()
+
+        ## The QHBoxLayout for the image is needed to ensure that the image display will automatically stretch with the window geometry.
+        self.hlt1 = QHBoxLayout()
+        self.hlt1.addWidget(self.mplwidget)
+
         self.saturation_checkbox = QCheckBox('Paint saturated pixels red', self)
         self.saturation_checkbox.setChecked(True)
         self.saturation_checkbox.stateChanged.connect(self.saturationCheckChange)
-
-        self.autoscale_checkbox = QCheckBox('Autoscale display brightness', self)
-        self.autoscale_checkbox.setChecked(self.autoscale_brightness)
-        self.autoscale_checkbox.stateChanged.connect(self.autoscaleChange)
 
         ## The outputbox object needs to go before camera initialization, so that any messages have a place to get printed.
         self.outputbox = QPlainTextEdit('')
         self.outputbox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
-        ## Initialize the camera and grab the first image.
-        self.image_widget = QLabel()
-        self.image_widget.mousePressEvent = self.image_clicked
         self.initialize_camera()
-        self.image = self.capture_image(1, verbose=True)
-        self.update_image_params()
-        
-        ## The QHBoxLayout for the image is needed to ensure that the image display will automatically stretch with the window geometry.
-        self.hlt1 = QHBoxLayout()
-        self.hlt1.addWidget(self.image_widget)
+        self.initialize_image_data()
 
         self.statusbar = QStatusBar()
         self.statusbar.setObjectName('statusbar')
@@ -227,8 +191,8 @@ class MainWindow(QMainWindow):
         self.save_nframes_spinbox.setValue(1)
         self.save_nframes_spinbox.setSingleStep(1)
         self.save_nframes_button = QPushButton('Save Frame(s)')
-        self.save_nframes_button.clicked.connect(self.save_video_sequence)
-        #self.save_nframes_button.clicked.connect(self.fastsave_video)
+        #self.save_nframes_button.clicked.connect(self.save_video_sequence)
+        self.save_nframes_button.clicked.connect(self.fastsave_video)
 
         self.convert_video_button = QPushButton('Convert all frames in dir to video')
         self.convert_video_button.clicked.connect(self.convert_frames_to_movie)
@@ -261,9 +225,6 @@ class MainWindow(QMainWindow):
         else:
             self.framerate_spinbox.setEnabled(False)
             self.framerate_label.setStyleSheet('color: rgba(125, 125, 125, 0);')
-
-        ## Disable the framerate stuff for now.
-        self.framerate_spinbox.setEnabled(False)
 
         self.exposure_label = QLabel('Exposure time (\u03bcs)')
         self.exposure_spinbox = QSpinBox()
@@ -299,7 +260,15 @@ class MainWindow(QMainWindow):
             self.cam_navgs_spinbox.setEnabled(False)
             self.cam_navgs_label.setStyleSheet('color: rgba(125, 125, 125, 1);')    ## grey-out the font when disabled
 
-        self.update_image_params()
+        self.draw_fig1()
+
+        self.cbar_fix_label = QLabel('Limit image display range (min,max):')
+        self.cbar_fixmin_editbox = QLineEdit('Min')
+        self.cbar_fixmax_editbox = QLineEdit('Max')
+        self.cbar_fixmin_editbox.setStyleSheet('color: rgba(125, 125, 125, 1);')
+        self.cbar_fixmax_editbox.setStyleSheet('color: rgba(125, 125, 125, 1);')
+        self.cbar_fixmin_editbox.textChanged.connect(self.colorbarFixminChanged)
+        self.cbar_fixmax_editbox.textChanged.connect(self.colorbarFixmaxChanged)
 
         self.camera_group = QGroupBox('Camera interaction', parent=self.mainframe)
         self.camera_group.setStyleSheet('QGroupBox { font-weight: bold; font-size: 14px; } ')
@@ -316,9 +285,20 @@ class MainWindow(QMainWindow):
         self.exposure_hlt.addWidget(self.exposure_label)
         self.exposure_hlt.addWidget(self.exposure_spinbox)
 
+        #self.cam_gain_hlt = QHBoxLayout()
+        #self.cam_gain_hlt.addWidget(self.cam_gain_label)
+        #self.cam_gain_hlt.addWidget(self.cam_gain_spinbox)
+
         self.cam_navgs_hlt = QHBoxLayout()
         self.cam_navgs_hlt.addWidget(self.cam_navgs_label)
         self.cam_navgs_hlt.addWidget(self.cam_navgs_spinbox)
+
+        self.cbar_edit_hlt = QHBoxLayout()
+        self.cbar_edit_hlt.addWidget(self.cbar_fixmin_editbox)
+        self.cbar_edit_hlt.addWidget(self.cbar_fixmax_editbox)
+        self.cbar_vlt = QVBoxLayout()
+        self.cbar_vlt.addWidget(self.cbar_fix_label)
+        self.cbar_vlt.addLayout(self.cbar_edit_hlt)
 
         self.autoexp_hlt = QHBoxLayout()
         self.set_autoexposure_button = QPushButton('Auto-adjust exposure')
@@ -338,16 +318,7 @@ class MainWindow(QMainWindow):
         self.binning_spinbox.valueChanged.connect(self.binningChange)
         self.binning_hlt.addWidget(self.binning_label)
         self.binning_hlt.addWidget(self.binning_spinbox)
-
-        self.cropping_hlt = QHBoxLayout()
-        self.cropping_label = QLabel('Camera cropping:')
-        self.cropping_spinbox = QSpinBox()
-        self.cropping_spinbox.setValue(0)
-        self.cropping_spinbox.setSingleStep(1)
-        self.cropping_spinbox.setRange(0,3)
-        self.cropping_spinbox.valueChanged.connect(self.croppingChange)
-        #self.cropping_hlt.addWidget(self.cropping_label)
-        #self.cropping_hlt.addWidget(self.cropping_spinbox)         ## disabled until I get the function working
+        self.binning_spinbox.setEnabled(False)                      ## disabled the button until I get the function working
 
         self.fpp_hlt = QHBoxLayout()
         self.activate_fpp_button = QPushButton('Activate FPP')
@@ -377,16 +348,16 @@ class MainWindow(QMainWindow):
         self.vlt1 = QVBoxLayout(self.camera_group)
         self.vlt1.addWidget(self.live_checkbox)
         self.vlt1.addWidget(self.saturation_checkbox)
-        self.vlt1.addWidget(self.autoscale_checkbox)
         self.vlt1.addLayout(self.file_dir_hlt)
         self.vlt1.addLayout(self.file_prefix_hlt)
         self.vlt1.addLayout(self.hlt_saveframes)
         self.vlt1.addWidget(self.cam_label)
         self.vlt1.addLayout(self.cam_frate_hlt)
         self.vlt1.addLayout(self.exposure_hlt)
+        #self.vlt1.addLayout(self.cam_gain_hlt)
         self.vlt1.addLayout(self.cam_navgs_hlt)
         self.vlt1.addLayout(self.binning_hlt)
-        self.vlt1.addLayout(self.cropping_hlt)
+        self.vlt1.addLayout(self.cbar_vlt)
         self.vlt1.addLayout(self.autoexp_hlt)
         self.vlt1.addLayout(self.fpp_hlt)
         self.vlt1.addLayout(self.lctf_hlt)
@@ -452,7 +423,7 @@ class MainWindow(QMainWindow):
     ## ===================================
     def liveDataChange(self, state):
         if (state == Qt.Checked) and (self.ncameras > 0):
-            QTimer.singleShot(self.timer_delay, self.acquire_new_image)
+            QTimer.singleShot(60, self.acquire_new_image)
         else:
             pass
 
@@ -466,17 +437,14 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def autoscaleChange(self, state):
-        if (state == Qt.Checked):
-            self.autoscale_brightness = True
-        else:
-            self.autoscale_brightness = False
-        return
-        
-    ## ===================================
     def saturationCheckChange(self, state):
         self.saturated = (self.image >= self.cam_saturation_level)
         self.img_has_saturation = self.saturated.any()
+
+        if (state == Qt.Checked) and self.img_has_saturation:
+            self.mycmap = self.satgrey
+        else:
+            self.mycmap = cm.gray
         return
 
     ## ===================================
@@ -496,9 +464,6 @@ class MainWindow(QMainWindow):
         self.camera.Init()                              ## Initialize the camera
         self.nodemap = self.camera.GetNodeMap()         ## Retrieve the camera's GenICam nodemap
 
-        ## Initialize the camera to start up with full image size.
-        fsl.set_full_imagesize(self.nodemap)
-
         if not fsl.set_autoexposure_off(self.nodemap, verbose=False):
             self.outputbox.appendPlainText(f'Failed to turn autoexposure off!')
 
@@ -510,7 +475,7 @@ class MainWindow(QMainWindow):
             self.outputbox.appendPlainText(f'Failed to set the pixel format to Mono16!')
 
         if not fsl.set_binning(self.nodemap, self.binning, verbose=False):
-            self.outputbox.appendPlainText(f'Failed to set the pixel binning to {self.binning}!')
+            self.outputbox.appendPlainText(f'Failed to set the pixel binning to 1!')
 
         ## Ask the camera what the allowed minimum and maximum image dimensions are.
         img_minmax = fsl.get_image_minmax(self.nodemap, verbose=False)
@@ -534,39 +499,38 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def update_image_params(self):
-        (self.Nx, self.Ny) = self.image.shape
+    def initialize_image_data(self):
+        self.image = self.capture_image(1, verbose=True)
+        if self.image is None:
+            raise ValueError(f'Failed to collect an image from the camera!')
+
         self.image_counter += 1
 
-        ## Since we have a new image, we need to update the saturation flags.
+        ## Update the saturation flags.
         if self.saturation_checkbox.isChecked():
             self.saturated = (self.image >= self.cam_saturation_level)
             self.img_has_saturation = self.saturated.any()
 
-        ## Make an 8-bit image object for display purposes. Set saturated pixels to red.
-        if self.img8bit is None:
-            self.img8bit = zeros((self.Nx,self.Ny,3), 'uint8')
-
-        if not self.autoscale_brightness:
-            self.img8bit[:,:,0] = self.image // self.tone_mapping_scale
-            self.img8bit[:,:,1] = self.img8bit[:,:,0]
-            self.img8bit[:,:,2] = self.img8bit[:,:,0]
+            if self.img_has_saturation:
+                self.mycmap = self.satgrey
+            else:
+                self.mycmap = cm.gray
         else:
-            scaled_image = self.image - amin(self.image)
-            scaled_image = 255.0 * scaled_image / amax(self.image)
-            self.img8bit[:,:,0] = uint8(scaled_image)
-            self.img8bit[:,:,1] = self.img8bit[:,:,0]
-            self.img8bit[:,:,2] = self.img8bit[:,:,0]
+            self.mycmap = cm.gray
 
-        if self.saturation_checkbox.isChecked() and self.img_has_saturation:
-            self.img8bit[self.saturated,0] = 255
-            self.img8bit[self.saturated,1] = 0
-            self.img8bit[self.saturated,2] = 0
+        ## Now we need to initialize the Matplotlib display, to get a reference to the display object.
+        mpl1 = self.mplwidget.canvas
+        vmin = self.image_vmin_str
+        vmax = self.image_vmax_str
+        if (vmin == 'Min'): vmin = amin(self.image)
+        if (vmax == 'Max'): vmax = amax(self.image)
+        if (vmin != None) and (vmax != None) and (vmax < vmin):
+            vmax = None
 
-        self.qimg = QImage(self.img8bit, self.Ny, self.Nx, QImage.Format_RGB888)
-        self.pixmap = QPixmap.fromImage(self.qimg)
-        self.canvas = QPixmap(self.pixmap)
-        self.image_widget.setPixmap(self.canvas)
+        self.img_obj = mpl1.ax.imshow(self.image, vmin=vmin, vmax=vmax, cmap=self.mycmap)
+        self.cb = mpl1.fig.colorbar(self.img_obj, shrink=0.85, pad=0.025)
+        self.first_draw = False
+        mpl1.draw()
 
         return
 
@@ -580,12 +544,20 @@ class MainWindow(QMainWindow):
             else:
                 self.image = img
 
+            self.image_counter += 1
             self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
-            self.update_image_params()
-            
+
+            ## Update the saturation flags.
+            if self.saturation_checkbox.isChecked():
+                self.saturated = (self.image >= self.cam_saturation_level)
+                self.img_has_saturation = self.saturated.any()
+                #print(f'self.img_has_saturation = {self.img_has_saturation}, amax(self.image) = {amax(self.image)}, self.cam_saturation_level = {self.cam_saturation_level}')
+
+        self.draw_fig1()
+
         if self.live_checkbox.isChecked() and (self.ncameras > 0):
-            ## Emit a signal to repeat this action after some ms defined by self.timer_delay.
-            QTimer.singleShot(self.timer_delay, self.acquire_new_image)
+            ## Emit a signal to repeat this action in another 50ms.
+            QTimer.singleShot(10, self.acquire_new_image)
 
         return
 
@@ -683,8 +655,8 @@ class MainWindow(QMainWindow):
 
         ## Finally, update the colorbar.
         self.cb.mappable.set_clim(vmin=vmin, vmax=vmax)
-        #self.cb.draw_all()      ## this is deprecated. When the bugs are worked out, replace it with the commented line below
-        mpl1.fig.draw_without_rendering()
+        self.cb.draw_all()      ## this is deprecated. When the bugs are worked out, replace it with the commented line below
+        #mpl1.fig.draw_without_rendering()
 
         return
 
@@ -723,8 +695,34 @@ class MainWindow(QMainWindow):
 
         ## Finally, update the colorbar.
         self.cb.mappable.set_clim(vmin=vmin, vmax=vmax)
-        #self.cb.draw_all()      ## this is deprecated. When the bugs are worked out, replace it with the commented line below
-        mpl1.fig.draw_without_rendering()
+        self.cb.draw_all()      ## this is deprecated. When the bugs are worked out, replace it with the commented line below
+        #mpl1.fig.draw_without_rendering()
+
+        return
+
+    ## ===================================
+    def draw_fig1(self):
+        mpl1 = self.mplwidget.canvas
+        vmin = self.image_vmin_str
+        vmax = self.image_vmax_str
+        if (vmin == 'Min'): vmin = amin(self.image)
+        if (vmax == 'Max'): vmax = amax(self.image)
+        if (vmin != None) and (vmax != None) and (vmax < vmin):
+            vmax = None
+
+        ## Update the saturation flags.
+        if self.saturation_checkbox.isChecked() and self.img_has_saturation:
+            self.mycmap = self.satgrey
+            #self.mycmap = cm.viridis
+        else:
+            self.mycmap = cm.gray
+
+        self.img_obj.set_data(self.image)
+        self.img_obj.set_cmap(self.mycmap)       ## update the colormap in case there is a change in saturation state
+
+        ## Update the colorbar to the new limits.
+        self.cb.mappable.set_clim(vmin=vmin, vmax=vmax)
+        mpl1.draw()
 
         return
 
@@ -747,12 +745,12 @@ class MainWindow(QMainWindow):
             else:
                 self.image = import_image[::-1,:]
 
-            self.update_image_params()
+            self.draw_fig1()
 
         return
 
     ## ===================================
-    def fileSave(self, filename='', scale=1, verbose=True):
+    def fileSave(self, filename='', verbose=True):
         if not filename:
             (filename,ok) = QFileDialog.getSaveFileName(self, "Save image to a file", '000000.tif')
             if not filename:
@@ -761,7 +759,7 @@ class MainWindow(QMainWindow):
         suffix = os.path.splitext(filename)[1][1:]
 
         if verbose:
-            self.outputbox.appendPlainText(f'Saving "{filename}"')
+        self.outputbox.appendPlainText(f'Saving "{filename}"')
 
         ## Currently I don't have saving to *.raw format working for single frames. Redirect to these to *.tif.
 
@@ -770,13 +768,13 @@ class MainWindow(QMainWindow):
                 img8bit = uint8(self.image[::-1,:] * 255.0 / amax(self.image))
                 imsave(filename, img8bit)
             elif suffix in ('tif','tiff'):
-                imsave(filename, self.image[::-1,:] // scale)
-            elif suffix == 'raw':
-                new_filename = filename[:-4]+'.tif'
-                self.outputbox.appendPlainText(f'Saving to RAW is not yet available for single frames. Changing to TIF: "{new_filename}"')
-                imsave(new_filename, self.image[::-1,:] // scale)
+                imsave(filename, self.image[::-1,:])
+                elif suffix == 'raw':
+                    new_filename = filename[:-4]+'.tif'
+                    self.outputbox.appendPlainText(f'Saving to RAW is not yet available for single frames. Changing to TIF: "{new_filename}"')
+                    imsave(new_filename, self.image[::-1,:])
             elif suffix == 'npz':
-                savez(filename, image=self.image // scale)
+                savez(filename, image=self.image)
 
             self.file_counter += 1
         except Exception as err:
@@ -789,21 +787,17 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'camera'):
             return(None)
 
-        ## "scale" is used to divide the 16-bit image value by 16 to remove the 4 extra bits going from 16-bit to 12-bit data.
-        ## However, if binning is turned on, then the sensor will deliver more than 12 bits.
-        scale = 16 / (self.binning**2)
-
         if (nframes == 1):
             if (self.navgs == 1):
                 (self.image, self.ts) = fsl.acquire_one_image(self.camera, self.nodemap)
                 if self.image is None:
                     return(None)
-                self.image = self.image // scale
+                self.image = self.image // 16   ## Divide by 16 to remove the 4 extra bits going from 16-bit to 12-bit data
             elif (self.navgs > 1):
                 (img_set, ts_set) = fsl.acquire_num_images(self.camera, self.nodemap, self.navgs)
                 if img_set is None:
                     return(None)
-                self.image = uint32(mean(img_set, axis=2)) // scale
+                self.image = uint32(mean(img_set, axis=2)) // 16   ## Divide by 16 to remove the 4 extra bits going from 16-bit to 12-bit data
                 self.ts = ts_set[0]
             return(self.image)
         elif (nframes > 1):
@@ -813,7 +807,7 @@ class MainWindow(QMainWindow):
                     (self.image, self.ts) = fsl.acquire_one_image(self.camera, self.nodemap)
                     if self.image is None:
                         return(None)
-                    video[:,:,n] = self.image // scale
+                    video[:,:,n] = self.image // 16   ## Divide by 16 to remove the 4 extra bits going from 16-bit to 12-bit data
             elif (self.navgs > 1):
                 ## Save N frames and average them together to each one frame of the video.
                 video = zeros((self.Nx,self.Ny,nframes), 'uint16')
@@ -822,9 +816,9 @@ class MainWindow(QMainWindow):
                     (img_set, ts_set) = fsl.acquire_num_images(self.camera, self.nodemap, self.navgs)
                     if img_set is None:
                         return(None)
-                    self.image = uint32(mean(img_set, axis=2)) // scale
+                    self.image = uint32(mean(img_set, axis=2)) // 16   ## Divide by 16 to remove the 4 extra bits going from 16-bit to 12-bit data
                     self.ts = ts_set[0]
-                    video[:,:,n] = self.image
+                    video[:,:,n] = self.image / 16   ## Divide by 16 to remove the 4 extra bits going from 16-bit to 12-bit data
 
             return(video)
         else:
@@ -860,14 +854,12 @@ class MainWindow(QMainWindow):
         elif (file_dir[-1] not in ('/','\\')):
             file_dir += '/'
         file_dir = file_dir.replace('\\', '/')
-        if not file_dir.endswith('/'):
-            file_dir += '/'
         file_prefix = self.file_prefix_editbox.text()
         file_suffix = self.file_suffix_editbox.text()
 
         if (nframes == 1):
             ## Note: the "file_counter" is what we use to keep track of all images saved so far in this session, so that we don't
-            ## overwrite previous files. The "fileSave()" function keeps track of incrementing this value each time it is called.
+            ## overwrite previous files. The "fileSave()" function keep track of incrementing this value each time it is called.
             filename = f'{file_dir}{file_prefix}_{self.file_counter:05}.{file_suffix}'
             self.fileSave(filename)
         elif (nframes > 1):
@@ -890,8 +882,7 @@ class MainWindow(QMainWindow):
                 nframes = video.shape[2]
                 for n in range(nframes):
                     filename = f'{file_dir}{file_prefix}_{self.file_counter:05}.{file_suffix}'
-                    self.fileSave(filename, scale=16)
-                self.outputbox.appendPlainText('Video save done.\n')
+                    self.fileSave(filename)
 
             if initial_state_is_live:
                 self.live_checkbox.setChecked(True)
@@ -925,11 +916,7 @@ class MainWindow(QMainWindow):
         if initial_state_is_live:
             self.live_checkbox.setChecked(False)
 
-        result_str = fsl.video_fastsave(self.camera, self.nodemap, nframes, file_dir, file_prefix, file_suffix, start_num=self.file_counter, verbose=True)
-        if result_str:
-            result_str += 'Video save done.\n'
-            self.outputbox.appendPlainText(result_str)
-            
+        fsl.video_fastsave(self.camera, self.nodemap, nframes, file_dir, file_prefix, file_suffix, start_num=self.file_counter, verbose=True)
         self.file_counter += nframes
 
         if initial_state_is_live:
@@ -988,8 +975,6 @@ class MainWindow(QMainWindow):
         fsl.set_autoexposure_off(self.nodemap)
         self.exposure = fsl.get_exposure(self.nodemap, verbose=False)
         self.exposure_spinbox.setValue(self.exposure)
-        fsl.set_exposure_time(self.nodemap, self.exposure)
-        self.outputbox.appendPlainText(f'Setting exposure to {int(self.exposure)} usec')
         return
 
     ## ===================================
@@ -997,7 +982,7 @@ class MainWindow(QMainWindow):
         if (self.ncameras == 0):
             return
 
-        #temporary = self.binning        ## store the current value in case there is an error in the new setting
+        temporary = self.binning        ## store the current value in case there is an error in the new setting
         if not fsl.set_binning(self.nodemap, self.binning_spinbox.value()):
             self.outputbox.appendPlainText(f'Failed to set the binning value!')
             return
@@ -1006,49 +991,6 @@ class MainWindow(QMainWindow):
         self.outputbox.appendPlainText(f'Setting binning = {self.binning}')
 
         ## Now that the binning has changed, modify the image size, and update the statusbar string.
-        (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
-        self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
-
-        #img_extent = (0, self.Ny-1, 0, self.Nx-1)
-        #self.img_obj.set_extent(img_extent)
-
-        ## Modify the saturation values, and the colorbar maxval.
-        self.cam_bitdepth = 12 + uint16(log2(self.binning))      ## camera bit depth
-        self.cam_saturation_level = (2**self.cam_bitdepth) - 1 - 7  ## why do we need '-7' here?!
-        self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
-
-        return
-
-    ## ===================================
-    def croppingChange(self):
-        if (self.ncameras == 0):
-            return
-
-        self.cropping = self.binning_spinbox.value()
-        
-        if (self.cropping == 0):
-            set_height = self.image_maxheight
-            set_width = self.image_maxwidth
-        elif (self.cropping == 1):
-            set_height = self.image_maxheight // 2
-            set_width = self.image_maxwidth // 2
-        elif (self.cropping == 2):
-            set_height = self.image_maxheight // 4
-            set_width = self.image_maxwidth // 4
-        elif (self.cropping == 3):
-            set_height = self.image_maxheight // 8
-            set_width = self.image_maxwidth // 8
-
-        ## Since we are forcing the cropping to be centered, the offsets are not free variables, but are determined by the size of the cropped image.
-        set_height_offset = (self.image_maxheight // 2) - (set_height // 2)
-        set_width_offset = (self.image_maxwidth // 2) - (set_width // 2)
-
-        if not fsl.set_image_region(self.nodemap, set_height, set_width, set_height_offset, set_width_offset):
-            self.outputbox.appendPlainText(f'Failed to set the cropping value!')
-            return
-        self.outputbox.appendPlainText(f'Setting cropping = {self.cropping}')
-
-        ## Now that the cropping has changed, modify the image size, and update the statusbar string.
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
         self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
 
@@ -1196,21 +1138,6 @@ class MainWindow(QMainWindow):
     def show_histogram(self):
         self.outputbox.appendPlainText(f'Histogram function is not yet implemented')
         return
-    
-    ## ===================================
-    def image_clicked(self, event):
-        if (event.button() == 1):
-            self.outputbox.appendPlainText("Left button clicked")
-        elif (event.button() == 2):
-            self.outputbox.appendPlainText("Right button clicked")
-        
-        live_data_state = self.live_checkbox.isChecked()
-        self.live_checkbox.setChecked(False)
-        self.dlg = CustomDialog(self.image)
-        self.dlg.exec()        
-        self.live_checkbox.setChecked(live_data_state)
-        return
-    
 
 ## ======================================================================================================
 def is_even(x):
@@ -1225,39 +1152,9 @@ def is_number(s):
         return False
 
 ## ======================================================================================================
-def clean_folders():
-    folders = ['C:/Users/root/','C:/Users/root/Desktop/','C:/Users/root/Documents/','C:/Users/root/Pictures/']
-    for folder in folders:
-        files = glob(folder + '*.png') + glob(folder + '*.PNG')
-        files += glob(folder + '*.jpg') + glob(folder + '*.JPG')
-        files += glob(folder + '*.jpeg') + glob(folder + '*.JPEG')
-        files += glob(folder + '*.bmp') + glob(folder + '*.BMP')
-        files += glob(folder + '*.tif') + glob(folder + '*.TIF')
-        files += glob(folder + '*.tiff') + glob(folder + '*.TIFF')
-        files = unique(files)
-        
-        current_time = time.time()
-        for f in files:
-            file_creation_time = os.path.getctime(f)
-            
-            ## Delete any image files more than 18 hours old
-            if (current_time - file_creation_time) / 3600 >= 18.0:
-                print(f'Deleting "{f}" ...')
-                os.unlink(f)
-    
-    return
-
-## ======================================================================================================
 ## ======================================================================================================
 
 if __name__ == '__main__':
-    ## First thing. When booting up, we should delete any image files (TIFF, PNG, JPG, BMP) that are present in the
-    ## following folders, as long as the files are 1 day or more old.
-    ##      /Desktop, /Root, /Pictures, /Documents
-    mpl.rcParams["savefig.directory"] = 'C:/Users/root/Desktop/'    ## default location to save figures
-    clean_folders()
-
-    ## Start the camera GUI.
     app = QApplication(sys.argv)
     app.setApplicationName('Interactive Full-Stokes Video Camera')
 
@@ -1265,10 +1162,10 @@ if __name__ == '__main__':
     screenSizeObject = QDesktopWidget().screenGeometry(-1)
     screen_height = screenSizeObject.height()
     screen_width = screenSizeObject.width()
-    gui_height = screen_height - 300
-    gui_width = screen_width - 300
-    print("Screen size (width,height): ("  + str(screen_width) + ","  + str(screen_height) + ")")
-    print("GUI positions (width,height): (100,100,"  + str(gui_width) + ","  + str(gui_height) + ")")
+    gui_height = screen_height - 100
+    gui_width = screen_width - 100
+    #print("Screen size (width,height): ("  + str(screen_width) + ","  + str(screen_height) + ")")
+    #print("GUI positions (width,height): (100,100,"  + str(gui_height) + ","  + str(gui_height) + ")")
 
     mw = MainWindow()
     mw.setWindowTitle('Interactive Full-Stokes Video Camera')
