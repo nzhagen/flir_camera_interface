@@ -143,7 +143,7 @@ def set_exposure_time(nodemap, time_in_usec, verbose=False):
         if verbose:
             print(f'Exposure time: limits = ({min_exposure_time:.1f},{max_exposure_time:.1f}), value set to {node_exposure_time.GetValue():.1f} usec ...')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_exposure_time(): Error: %s' % ex)
         result = False
 
     return(result)
@@ -176,7 +176,7 @@ def set_autoexposure_off(nodemap, verbose=False):
         if verbose:
             print('Turning auto-exposure off')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_autoexposure_off(): Error: %s' % ex)
         result = False
 
     return result
@@ -209,7 +209,7 @@ def set_autoexposure_on(nodemap, verbose=False):
         if verbose:
             print('Turning auto-exposure on')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_autoexposure_on(): Error: %s' % ex)
         result = False
 
     return(result)
@@ -252,8 +252,8 @@ def set_pixel_format(nodemap, pixfmt, verbose=False):
             # Retrieve the desired entry node from the enumeration node
             if (pixfmt == 'Mono8'):
                 node_pixel_format_mono = PySpin.CEnumEntryPtr(node_pixel_format.GetEntryByName('Mono8'))
-            elif (pixfmt == 'Mono12'):
-                node_pixel_format_mono = PySpin.CEnumEntryPtr(node_pixel_format.GetEntryByName('Mono12'))
+            elif (pixfmt == 'Mono12p'):
+                node_pixel_format_mono = PySpin.CEnumEntryPtr(node_pixel_format.GetEntryByName('Mono12p'))
             elif (pixfmt == 'Mono16'):
                 node_pixel_format_mono = PySpin.CEnumEntryPtr(node_pixel_format.GetEntryByName('Mono16'))
             else:
@@ -276,7 +276,7 @@ def set_pixel_format(nodemap, pixfmt, verbose=False):
             print('Pixel format node not available...')
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_pixel_format(): Error: %s' % ex)
         return(False)
 
     return(result)
@@ -284,11 +284,10 @@ def set_pixel_format(nodemap, pixfmt, verbose=False):
 ## ====================================================================================
 def set_image_region(nodemap, height, width, height_offset, width_offset, verbose=False):
     """
-    Configures the width, height, width offset, and height offset. These settings must be 
-    applied before BeginAcquisition()
-    is called; otherwise, they will be read only. Also, it is important to note that
-    settings are applied immediately. This means if you plan to reduce the width and
-    move the x offset accordingly, you need to apply such changes in the appropriate order.
+    Configures the width, height, width offset, and height offset. These settings must be applied before 
+    BeginAcquisition() is called; otherwise, they will be read only. Also, it is important to note that
+    settings are applied immediately. This means if you plan to reduce the width and move the x offset 
+    accordingly, you need to apply such changes in the appropriate order.
 
     :param nodemap: Device GenICam nodemap
     :param height: uint
@@ -327,7 +326,7 @@ def set_image_region(nodemap, height, width, height_offset, width_offset, verbos
 
         ## Set image width. Find out what the image pixel increment value is. Then you can check to see if the set 
         ## value is a proper integer multiple of the increment before trying to set the value.
-        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode('WidthMax'))
         if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
             min_width = node_width.GetMin()
             max_width = node_width.GetMax()
@@ -342,7 +341,7 @@ def set_image_region(nodemap, height, width, height_offset, width_offset, verbos
             print('Image width node not available...')
 
         ## Set image height
-        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode('HeightMax'))
         if PySpin.IsAvailable(node_height) and PySpin.IsWritable(node_height):
             min_height = node_height.GetMin()
             max_height = node_height.GetMax()
@@ -378,7 +377,64 @@ def set_image_region(nodemap, height, width, height_offset, width_offset, verbos
         else:
             print('Height offset node not available...')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_image_region(): Error: %s' % ex)
+        return(False)
+
+    return(result)
+
+## ====================================================================================
+def set_full_imagesize(nodemap, verbose=False):
+    """
+    Sets the camera's width & height to be the maximum possible (no binning and no cropping). These settings must be 
+    applied before BeginAcquisition() is called.
+
+    :param nodemap: Device GenICam nodemap
+    :param height: uint
+    :param width: uint
+    :param height_offset: uint
+    :param width_offset: uint
+    :type nodemap: INodeMap
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+    try:
+        result = True
+
+        ## First reset the binning value to 1.
+        set_binning(nodemap, 1)
+
+        ## Apply minimum offset X
+        node_offset_x = PySpin.CIntegerPtr(nodemap.GetNode('OffsetX'))
+        if PySpin.IsAvailable(node_offset_x) and PySpin.IsWritable(node_offset_x):
+            node_offset_x.SetValue(0)
+        else:
+            print('Offset X node not available...')
+
+        ## Apply minimum to offset Y
+        node_offset_y = PySpin.CIntegerPtr(nodemap.GetNode('OffsetY'))
+        if PySpin.IsAvailable(node_offset_y) and PySpin.IsWritable(node_offset_y):
+            node_offset_y.SetValue(0)
+        else:
+            print('Offset Y node not available...')
+
+        ## Set image width. Find out what the image pixel increment value is. Then you can check to see if the set 
+        ## value is a proper integer multiple of the increment before trying to set the value.
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
+        if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
+            node_width.SetValue(node_width.GetMax())
+        else:
+            print('Image width node not available...')
+
+        ## Set image height
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
+        if PySpin.IsAvailable(node_height) and PySpin.IsWritable(node_height):
+            node_height.SetValue(node_height.GetMax())
+        else:
+            print('Image height node not available...')
+
+    except PySpin.SpinnakerException as ex:
+        print('set_full_imagesize(): Error: %s' % ex)
         return(False)
 
     return(result)
@@ -429,26 +485,8 @@ def set_binning(nodemap, binning_value, verbose=False):
         else:
             print('Vertical binning node not available...')
 
-#        ## Get the new image width
-#        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
-#        if PySpin.IsAvailable(node_width) and PySpin.IsReadable(node_width):
-#            new_image_width = node_width.GetValue()
-#            if verbose:
-#                print(f'New image width: {new_image_width}')
-#        else:
-#            print('Image width node not available...')
-#
-#        ## Set image height
-#        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
-#        if PySpin.IsAvailable(node_height) and PySpin.IsReadable(node_height):
-#            new_image_height = node_height.GetValue()
-#            if verbose:
-#                print(f'New image height: {new_image_height}')
-#        else:
-#            print('Image height node not available...')
-
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_binning(): Error: %s' % ex)
         return(False)
 
     return(result)
@@ -470,7 +508,7 @@ def get_image_width_height(nodemap, verbose=False):
     
     try:
         ## Get the image width
-        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode('WidthMax'))
         if PySpin.IsAvailable(node_width) and PySpin.IsReadable(node_width):
             image_width = node_width.GetValue()
             if verbose:
@@ -479,7 +517,7 @@ def get_image_width_height(nodemap, verbose=False):
             print('Image width node not available...')
 
         ## Get the image height
-        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode('HeightMax'))
         if PySpin.IsAvailable(node_height) and PySpin.IsReadable(node_height):
             image_height = node_height.GetValue()
             if verbose:
@@ -487,7 +525,7 @@ def get_image_width_height(nodemap, verbose=False):
         else:
             print('Image height node not available...')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('get_image_width_height(): Error: %s' % ex)
 
     return(image_width, image_height)
 
@@ -520,7 +558,7 @@ def set_autogain_off(nodemap, verbose=False):
         if verbose:
             print('Turning off auto-gain...')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_autogain_off(): Error: %s' % ex)
         result = False
 
     return(result)
@@ -553,7 +591,7 @@ def set_autogain_on(nodemap, verbose=False):
         if verbose:
             print('Turning on auto-gain...')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_autogain_on(): Error: %s' % ex)
         result = False
 
     return(result)
@@ -581,7 +619,7 @@ def get_framerate(nodemap, verbose=False):
         if verbose:
             print(f'Current frame rate: {current_framerate:.1f} Hz')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('get_framerate(): Error: %s' % ex)
         current_framerate = 0
 
     return(current_framerate)
@@ -657,8 +695,8 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
                     filename = f'{i:05d}.tif'
                     image_converted.Save(filename)
 
-                ## This is the numpy array result to return. Flip up-down to fit bottom-left origin display.
-                image_set[:,:,i] = array(image_result.GetNDArray())[::-1,:]
+                ## This is the numpy array result to return.
+                image_set[:,:,i] = array(image_result.GetNDArray())
                 #print(i, f'amin(image_set[:,:,i])={amin(image_set[:,:,i]):.1f}, amax(image_set[:,:,i])={amax(image_set[:,:,i]):.1f}')
 
                 ## Release image. Images retrieved directly from the camera (i.e. non-converted
@@ -666,7 +704,7 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
                 image_result.Release()
 
             except PySpin.SpinnakerException as ex:
-                print('Error: %s' % ex)
+                print('acquire_num_images(): Error 1: %s' % ex)
                 return(None, 0)
 
         ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
@@ -674,7 +712,7 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
         cam.EndAcquisition()
     
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('acquire_num_images(): Error 2: %s' % ex)
         return(None, 0)
 
     return(image_set, ts_set)
@@ -691,6 +729,8 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
+
+    image_data = None
 
     try:
         ## Begin image acquisition. Image acquisition must be ended when no more images are needed.
@@ -728,7 +768,6 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
 
                 ## This is the numpy array result to return. Flip up-down to fit bottom-left origin display.
                 image_data = image_result.GetNDArray()
-                image_data = image_data[::-1,:]
                 ts = image_result.GetTimeStamp()
                 
                 ## Release image. Images retrieved directly from the camera (i.e. non-converted
@@ -736,7 +775,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
                 image_result.Release()
 
         except PySpin.SpinnakerException as ex:
-            print('Error: %s' % ex)
+            print('acquire_one_image(): Error 1: %s' % ex)
             return(None, 0)
 
         ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
@@ -744,7 +783,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
         cam.EndAcquisition()
     
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('acquire_one_image(): Error 2: %s' % ex)
         return(None, 0)
 
     return(image_data, ts)
@@ -786,6 +825,8 @@ def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_s
 
         ## Begin acquiring images. Image acquisition must be ended when no more images are needed.
         cam.BeginAcquisition()
+        
+        s = ''
 
         ## Retrieve, convert, and save images
         for i in range(num_images):
@@ -804,19 +845,22 @@ def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_s
                 else:
                     if filename.endswith('raw') and (image_result.GetPixelFormatName() == 'Mono16'):
                         image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
+                    elif filename.endswith('tif') and (image_result.GetPixelFormatName() == 'Mono16'):
+                        image_converted = image_result.Convert(PySpin.PixelFormat_Mono16, PySpin.HQ_LINEAR)
                     else:
                         image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_converted.Save(filename)
                    
                     if verbose:
-                        print(f'Saved "{filename}": ts={image_result.GetTimeStamp()}')
+                        s += f'Saved "{filename}": ts={image_result.GetTimeStamp()}\n'
+                        #print(f'Saved "{filename}": ts={image_result.GetTimeStamp()}')
 
                 ## Release image. Images retrieved directly from the camera (i.e. non-converted
                 ## images) need to be released in order to keep from filling the buffer.
                 image_result.Release()
 
             except PySpin.SpinnakerException as ex:
-                print('Error: %s' % ex)
+                print('video_fastsave(): Error 1: %s' % ex)
                 return(None, 0)
 
         ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
@@ -824,10 +868,10 @@ def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_s
         cam.EndAcquisition()
     
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('video_fastsave(): Error 2: %s' % ex)
         return(None, 0)
 
-    return
+    return(s)
 
 ## ====================================================================================
 def get_image_minmax(nodemap, verbose=False):
@@ -862,7 +906,7 @@ def get_image_minmax(nodemap, verbose=False):
         else:
             print('Image height node not available...')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('get_image_minmax(): Error: %s' % ex)
 
     return(min_width, max_width, min_height, max_height)
 
@@ -894,7 +938,7 @@ def get_exposure_minmax(nodemap, verbose=False):
         min_exposure_time = node_exposure_time.GetMin()
         max_exposure_time = node_exposure_time.GetMax()
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('get_exposure_minmax(): Error: %s' % ex)
 
     return(min_exposure_time, max_exposure_time)
 
@@ -923,7 +967,7 @@ def get_exposure(nodemap, verbose=False):
 
         exposure_time = node_exposure_time.GetValue()
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('get_exposure(): Error: %s' % ex)
 
     return(exposure_time)
 
@@ -941,6 +985,11 @@ def set_exposure_compensation_off(nodemap, verbose=False):
     try:
         result = True
 
+        ## If exposure compensation function does not exist, you get a null pointer here. In that case, you don't need to
+        ## turn it off!
+        if not nodemap.GetNode('ExposureCompensationAuto'):
+            return(True)
+
         node_exposure_compensation_auto = PySpin.CEnumerationPtr(nodemap.GetNode('ExposureCompensationAuto'))
         if not PySpin.IsAvailable(node_exposure_compensation_auto) and PySpin.IsWritable(node_exposure_compensation_auto):
             print('Autoexposure node is not available.')
@@ -955,10 +1004,10 @@ def set_exposure_compensation_off(nodemap, verbose=False):
         if verbose:
             print('Turning auto exposure compensation off')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_exposure_compensation_off(): Error: %s' % ex)
         result = False
 
-    return result
+    return(result)
 
 ## ====================================================================================
 def set_exposure_compensation_on(nodemap, verbose=False):
@@ -974,6 +1023,11 @@ def set_exposure_compensation_on(nodemap, verbose=False):
     try:
         result = True
 
+        ## If exposure compensation function does not exist, you get a null pointer here. In that case, you don't need to
+        ## turn it on!
+        if not nodemap.GetNode('ExposureCompensationAuto'):
+            return(True)
+
         node_exposure_compensation_auto = PySpin.CEnumerationPtr(nodemap.GetNode('ExposureCompensationAuto'))
         if not PySpin.IsAvailable(node_exposure_compensation_auto) and PySpin.IsWritable(node_exposure_compensation_auto):
             print('Autoexposure node is not available.')
@@ -988,7 +1042,7 @@ def set_exposure_compensation_on(nodemap, verbose=False):
         if verbose:
             print('Turning auto exposure compensation on')
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('set_exposure_compensation_on(): Error: %s' % ex)
         result = False
 
     return result
@@ -1037,7 +1091,7 @@ def save_image_pointer_list_to_avi(nodemap, image_list, avi_filename, image_heig
         print('Video saved at %s.avi' % avi_filename)
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print('save_image_pointer_list_to_avi(): Error: %s' % ex)
         return(False)
 
     return(result)
