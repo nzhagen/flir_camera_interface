@@ -127,12 +127,12 @@ class MainWindow(QMainWindow):
         self.exposure = 10000
         self.binning = 1
         self.cropping = 0
-        self.cam_bitdepth = 12 + uint16(log2(self.binning))      ## camera bit depth
+        self.cam_bitdepth = 12 + uint16(log2(self.binning**2))      ## camera bit depth
         self.cam_saturation_level = (2**self.cam_bitdepth) - 1 - 7  ## why do we need '-7' here?!
         self.img_has_saturation = False
         self.outputbox = None       ## need to define this variable early to prevent error -- it gets redefined later
         self.cwd = os.getcwd()
-        self.timer_delay = 10       ## time in ms to delay before requesting a new image from the camera
+        self.timer_delay = 50       ## time in ms to delay before requesting a new image from the camera
         self.autoscale_brightness = True        ## whether to automatically scale the display so the darkest pixel is black and the brightest is white
         
         ## Whether to use tone-mapping when converting from 12-bit to 8-bit for display. If the scale is 16 then use bit truncation rather than tone-mapping.
@@ -321,12 +321,12 @@ class MainWindow(QMainWindow):
         self.cam_navgs_hlt.addWidget(self.cam_navgs_spinbox)
 
         self.autoexp_hlt = QHBoxLayout()
-        self.set_autoexposure_button = QPushButton('Auto-adjust exposure')
-        self.set_autoexposure_button.clicked.connect(self.set_autoexposure)
+        self.do_autoexposure_button = QPushButton('Auto-adjust exposure')
+        self.do_autoexposure_button.clicked.connect(self.do_autoexposure)
         self.show_histogram_button = QPushButton('Show image histogram')
         self.show_histogram_button.clicked.connect(self.show_histogram)
         self.show_histogram_button.setEnabled(False)                      ## disabled the button until I get the function working
-        self.autoexp_hlt.addWidget(self.set_autoexposure_button)
+        self.autoexp_hlt.addWidget(self.do_autoexposure_button)
         self.autoexp_hlt.addWidget(self.show_histogram_button)
 
         self.binning_hlt = QHBoxLayout()
@@ -544,7 +544,7 @@ class MainWindow(QMainWindow):
             self.img_has_saturation = self.saturated.any()
 
         ## Make an 8-bit image object for display purposes. Set saturated pixels to red.
-        if self.img8bit is None:
+        if (self.img8bit is None) or (self.img8bit.shape != self.image.shape):
             self.img8bit = zeros((self.Nx,self.Ny,3), 'uint8')
 
         if not self.autoscale_brightness:
@@ -620,7 +620,9 @@ class MainWindow(QMainWindow):
     ## ===================================
     def exposureChange(self):
         ## Disable this function when LIVE checkbox is on.
-        if (self.ncameras > 0) and self.live_checkbox.isChecked():
+        if (self.ncameras == 0) or not self.live_checkbox.isChecked():
+            return
+
             new_exposure = self.exposure_spinbox.value()
             if (new_exposure > self.max_exposure):
                 new_exposure = self.max_exposure
@@ -629,9 +631,9 @@ class MainWindow(QMainWindow):
 
             self.exposure = new_exposure
             self.exposure_spinbox.setValue(new_exposure)
-            #new_exposure_in_usec = new_exposure * 1000
             fsl.set_exposure_time(self.nodemap, new_exposure)
             self.outputbox.appendPlainText(f'Setting exposure = {self.exposure} usec')
+           
         return
 
     ## ===================================
@@ -646,86 +648,6 @@ class MainWindow(QMainWindow):
     def navgsChange(self, state):
         self.navgs = self.cam_navgs_spinbox.value()
         self.outputbox.appendPlainText(f'Setting navgs = {self.navgs}')
-        return
-
-    ## ===================================
-    def colorbarFixminChanged(self, mintext):
-        mpl1 = self.mplwidget.canvas
-        maxtext = self.cbar_fixmax_editbox.text()
-        ## If the textbox string is "Min" then we should set vmin=None in order to let it be set by Matplotlib automatically.
-        ## If the textbox is not a valid number, then show the text in grey.
-        if (mintext.lower() == 'min'):
-            vmin = None
-            self.cbar_fixmin_editbox.setStyleSheet('color: rgba(125, 125, 125, 1);')
-        else:
-            ## Take the values here and send them to the current image window's colorbar.
-            if is_number(mintext):
-                vmin = float32(mintext)
-                self.cbar_fixmin_editbox.setStyleSheet('color: rgba(0, 0, 0, 1);')
-            else:
-                ## The string is not valid, so just allow the range to be set automatically.
-                vmin = None
-                self.cbar_fixmin_editbox.setStyleSheet('color: rgba(125, 125, 125, 1);')
-
-        if (maxtext.lower() == 'max'):
-            vmax = None
-        else:
-            ## Take the values here and send them to the current image window's colorbar.
-            if is_number(maxtext):
-                vmax = float32(maxtext)
-            else:
-                ## The string is not valid, so just allow the range to be set automatically.
-                vmax = None
-
-        self.image_vmin_str = vmin
-        self.image_vmax_str = vmax
-        self.outputbox.appendPlainText(f'vmin = {vmin}, vmax = {vmax}')
-
-        ## Finally, update the colorbar.
-        self.cb.mappable.set_clim(vmin=vmin, vmax=vmax)
-        #self.cb.draw_all()      ## this is deprecated. When the bugs are worked out, replace it with the commented line below
-        mpl1.fig.draw_without_rendering()
-
-        return
-
-    ## ===================================
-    def colorbarFixmaxChanged(self, maxtext):
-        mpl1 = self.mplwidget.canvas
-        mintext = self.cbar_fixmin_editbox.text()
-        if (mintext.lower() == 'min'):
-            vmin = None
-        else:
-            ## Take the values here and send them to the current image window's colorbar.
-            if is_number(mintext):
-                vmin = uint16(mintext)
-            else:
-                ## The string is not valid, so just allow the range to be set automatically.
-                vmin = None
-
-        ## If the textbox string is "Max" then we should set vmax=None in order to let it be set by Matplotlib automatically.
-        ## If the textbox is not a valid number, then show the text in grey.
-        if (maxtext.lower() == 'max'):
-            vmax = None
-            self.cbar_fixmax_editbox.setStyleSheet('color: rgba(125, 125, 125, 1);')
-        else:
-            ## Take the values here and send them to the current image window's colorbar.
-            if is_number(maxtext):
-                vmax = uint16(maxtext)
-                self.cbar_fixmax_editbox.setStyleSheet('color: rgba(0, 0, 0, 1);')
-            else:
-                ## The string is not valid, so just allow the range to be set automatically.
-                vmax = None
-                self.cbar_fixmax_editbox.setStyleSheet('color: rgba(125, 125, 125, 1);')
-
-        self.image_vmin_str = vmin
-        self.image_vmax_str = vmax
-        self.outputbox.appendPlainText(f'vmin = {vmin}, vmax = {vmax}')
-
-        ## Finally, update the colorbar.
-        self.cb.mappable.set_clim(vmin=vmin, vmax=vmax)
-        #self.cb.draw_all()      ## this is deprecated. When the bugs are worked out, replace it with the commented line below
-        mpl1.fig.draw_without_rendering()
-
         return
 
     ## ===================================
@@ -981,15 +903,23 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def set_autoexposure(self):
-        ## Now, send the camera commands to turn on the autoexposure, then turn it back off...
-        fsl.set_autoexposure_on(self.nodemap)
-        time.sleep(1.0)             ## wait for 1sec for the autoexposure to settle
-        fsl.set_autoexposure_off(self.nodemap)
-        self.exposure = fsl.get_exposure(self.nodemap, verbose=False)
+    def do_autoexposure(self):
+        ## Set the exposure so that the maximum brightness pixel is at 98% of saturation. If there are not saturated pixels in the image, then this is easy.
+        ## If there are saturated pixels, then we first have to reduce the exposure so that they are not saturated and then do the linear exposure scaling.
+        while self.img_has_saturation:
+            self.exposure /= 2
         self.exposure_spinbox.setValue(self.exposure)
         fsl.set_exposure_time(self.nodemap, self.exposure)
-        self.outputbox.appendPlainText(f'Setting exposure to {int(self.exposure)} usec')
+            self.acquire_new_image()
+            
+            ## If the checkbox is not checked, then "acquire_new_image()" will not update the "img_has_saturation" variable.
+            if self.saturation_checkbox.isChecked():
+                self.saturated = (self.image >= self.cam_saturation_level)
+                self.img_has_saturation = self.saturated.any()
+        
+        self.exposure = uint32(self.exposure * self.cam_saturation_level * 0.98 / amax(self.image))
+        self.exposure_spinbox.setValue(self.exposure)
+        fsl.set_exposure_time(self.nodemap, self.exposure)
         return
 
     ## ===================================
@@ -1009,11 +939,8 @@ class MainWindow(QMainWindow):
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
         self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
 
-        #img_extent = (0, self.Ny-1, 0, self.Nx-1)
-        #self.img_obj.set_extent(img_extent)
-
         ## Modify the saturation values, and the colorbar maxval.
-        self.cam_bitdepth = 12 + uint16(log2(self.binning))      ## camera bit depth
+        self.cam_bitdepth = 12 + uint16(log2(self.binning**2))      ## camera bit depth
         self.cam_saturation_level = (2**self.cam_bitdepth) - 1 - 7  ## why do we need '-7' here?!
         self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
 
@@ -1255,7 +1182,7 @@ if __name__ == '__main__':
     ## following folders, as long as the files are 1 day or more old.
     ##      /Desktop, /Root, /Pictures, /Documents
     mpl.rcParams["savefig.directory"] = 'C:/Users/root/Desktop/'    ## default location to save figures
-    clean_folders()
+    #clean_folders()
 
     ## Start the camera GUI.
     app = QApplication(sys.argv)
