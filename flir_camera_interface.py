@@ -13,7 +13,7 @@ from PyQt5.QtGui import QKeySequence, QIcon, QColor, QFont, QImage, QPixmap, QPa
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QMainWindow, QSizePolicy, QWidget, QVBoxLayout, QMenuBar, QStatusBar,
                              QHBoxLayout, QAction, QDialog, QFrame, QFileDialog, QGroupBox, QRadioButton, QGridLayout,
                              QTabWidget, QLabel, QCheckBox, QSpinBox, QPlainTextEdit, QMessageBox, QErrorMessage,
-                             QDoubleSpinBox, QDialogButtonBox, QLineEdit, QLabel, QDesktopWidget, QPushButton, QFormLayout)
+                             QDoubleSpinBox, QDialogButtonBox, QLineEdit, QLabel, QPushButton, QFormLayout)
 
 ## import the Qt5Agg figure canvas object, that binds figures to the Qt5Agg backend. It also inherits from QWidget.
 import matplotlib
@@ -178,9 +178,9 @@ class MainWindow(QMainWindow):
         self.saturation_checkbox.setChecked(True)
         self.saturation_checkbox.stateChanged.connect(self.saturationCheckChange)
 
-        self.autoscale_checkbox = QCheckBox('Autoscale display brightness', self)
-        self.autoscale_checkbox.setChecked(self.autoscale_brightness)
-        self.autoscale_checkbox.stateChanged.connect(self.autoscaleChange)
+        #self.autoscale_checkbox = QCheckBox('Autoscale display brightness', self)
+        #self.autoscale_checkbox.setChecked(self.autoscale_brightness)
+        #self.autoscale_checkbox.stateChanged.connect(self.autoscaleChange)
 
         ## The outputbox object needs to go before camera initialization, so that any messages have a place to get printed.
         self.outputbox = QPlainTextEdit('')
@@ -377,7 +377,7 @@ class MainWindow(QMainWindow):
         self.vlt1 = QVBoxLayout(self.camera_group)
         self.vlt1.addWidget(self.live_checkbox)
         self.vlt1.addWidget(self.saturation_checkbox)
-        self.vlt1.addWidget(self.autoscale_checkbox)
+        #self.vlt1.addWidget(self.autoscale_checkbox)
         self.vlt1.addLayout(self.file_dir_hlt)
         self.vlt1.addLayout(self.file_prefix_hlt)
         self.vlt1.addLayout(self.hlt_saveframes)
@@ -565,8 +565,8 @@ class MainWindow(QMainWindow):
 
         self.qimg = QImage(self.img8bit, self.Ny, self.Nx, QImage.Format_RGB888)
         self.pixmap = QPixmap.fromImage(self.qimg)
-        self.canvas = QPixmap(self.pixmap)
-        self.image_widget.setPixmap(self.canvas)
+        self.image_widget.setPixmap(self.pixmap)
+        #self.image_widget.setPixmap(self.pixmap.scaled(self.image_widget.size(), Qt.KeepAspectRatio))
 
         return
 
@@ -591,16 +591,19 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def frameRateChange(self):
-#        if (self.ncameras == 0) or (self.framerate_spinbox.value() == 0):
-#            return
-#
-#        self.framerate = self.framerate_spinbox.value()
-#        current_cam_framerate = self.camera.camera_nodes.AcquisitionFrameRate.get_node_value()     ## rotpy style
-#        if (self.framerate == current_cam_framerate):
-#            return
-#        else:
-#            self.camera.camera_nodes.AcquisitionFrameRate.set_node_value(self.framerate)
-#
+        if (self.ncameras == 0) or (self.framerate_spinbox.value() == 0):
+            return
+
+        new_framerate = self.framerate_spinbox.value()
+        current_framerate = self.framerate
+        if (abs(new_framerate - current_framerate) < 0.1):
+            self.outputbox.appendPlainText(f'Failed to set framerate!')
+            return
+        else:
+            fsl.set_framerate(self.nodemap, new_framerate)
+            self.framerate = new_framerate
+            self.outputbox.appendPlainText(f'Framerate set to {new_framerate} Hz')
+
 #        exposure_limit = 1000000.0 / self.framerate
 #        if (self.exposure > exposure_limit):
 #            self.exposure = exposure_limit
@@ -619,7 +622,6 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def exposureChange(self):
-        ## Disable this function when LIVE checkbox is on.
         if (self.ncameras == 0) or not self.live_checkbox.isChecked():
             return
 
@@ -638,10 +640,9 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def gainChange(self):
-#        ## Disable this function when LIVE checkbox is on.
 #        if (self.ncameras > 0) and self.live_checkbox.isChecked():
 #            self.cam_gain = self.cam_gain_spinbox.value()
-#            self.camera.camera_nodes.Gain.set_node_value(self.cam_gain)    ## from rotpy
+#            fsl.set_gain(self.cam_gain)
         return
 
     ## ===================================
@@ -904,6 +905,10 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def do_autoexposure(self):
+        if (self.ncameras == 0) or not self.live_checkbox.isChecked():
+            self.outputbox.appendPlainText(f'Cannot do autoexposure when the camera is not live!')
+            return
+
         ## Set the exposure so that the maximum brightness pixel is at 98% of saturation. If there are not saturated pixels in the image, then this is easy.
         ## If there are saturated pixels, then we first have to reduce the exposure so that they are not saturated and then do the linear exposure scaling.
         while self.img_has_saturation:
@@ -1189,13 +1194,11 @@ if __name__ == '__main__':
     app.setApplicationName('Interactive Full-Stokes Video Camera')
 
     ## Calculate the current desktop screen size available. Store the results as global variables.
-    screenSizeObject = QDesktopWidget().screenGeometry(-1)
-    screen_height = screenSizeObject.height()
-    screen_width = screenSizeObject.width()
-    gui_height = screen_height - 300
-    gui_width = screen_width - 300
-    print("Screen size (width,height): ("  + str(screen_width) + ","  + str(screen_height) + ")")
-    print("GUI positions (width,height): (100,100,"  + str(gui_width) + ","  + str(gui_height) + ")")
+    screen = QApplication.primaryScreen()
+    size = screen.size()
+    print('Screen Size: %d x %d' % (size.width(), size.height()))
+    rect = screen.availableGeometry()
+    print('Available Size for GUI: %d x %d' % (rect.width(), rect.height()))
 
     mw = MainWindow()
     mw.setWindowTitle('Interactive Full-Stokes Video Camera')
