@@ -446,7 +446,7 @@ def set_binning(nodemap, binning_value, verbose=False):
 
     :param nodemap: Device GenICam nodemap
     :type nodemap: CameraPtr
-    :param vert_binning: uint
+    :param binning_value: uint
     :return: True if successful, False otherwise.
     :rtype: bool
     """
@@ -623,6 +623,54 @@ def get_framerate(nodemap, verbose=False):
         current_framerate = 0
 
     return(current_framerate)
+
+## ====================================================================================
+def set_framerate(nodemap, new_framerate, verbose=False):
+    """
+    This function gets the current framerate setting (in Hz) of the camera.
+
+    :param nodemap: Device GenICam nodemap
+    :type nodemap: CameraPtr
+    :param new_framerate: double
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+    try:
+        result = True
+
+        node_framerateenable = PySpin.CFloatPtr(nodemap.GetNode('AcquisitionFrameRateEnable'))
+        if not PySpin.IsAvailable(node_framerateenable) and not PySpin.IsReadable(node_framerateenable):
+            print('AcquisitionFrameRateEnable node is not available...')
+            return(False)
+
+        node_acquisition_framerate = PySpin.CFloatPtr(nodemap.GetNode('AcquisitionFrameRate'))
+        if not PySpin.IsAvailable(node_acquisition_framerate) and not PySpin.IsReadable(node_acquisition_framerate):
+            print('AcquisitionFrameRate node is not available...')
+            return(False)
+
+        old_framerate = node_acquisition_framerate.SetValue(double(new_framerate))
+        min_framerate = node_acquisition_framerate.GetMin()
+        max_framerate = node_acquisition_framerate.GetMax()
+        
+        if (new_framerate > max_framerate):
+            print('Cannot set the frame rate to {new_framerate:.1f} Hz, which is above the max allowed value of {max_framerate:.1f} Hz.')
+            print('Defaulting to {max_framerate:.1f} Hz ...')
+            new_framerate = max_framerate
+        
+        if (new_framerate < min_framerate):
+            print('Cannot set the frame rate to {new_framerate:.1f} Hz, which is below the min allowed value of {min_framerate:.1f} Hz.')
+            print('Defaulting to {min_framerate:.1f} Hz ...')
+            new_framerate = min_framerate
+        
+        node_acquisition_framerate.SetValue(double(new_framerate))
+        if verbose:
+            print(f'Old frame rate = {old_framerate:.1f} Hz,   new frame rate: {new_framerate:.1f} Hz')
+    except PySpin.SpinnakerException as ex:
+        print('set_framerate(): Error: %s' % ex)
+        result = False
+
+    return(result)
 
 ## ====================================================================================
 def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=False):
