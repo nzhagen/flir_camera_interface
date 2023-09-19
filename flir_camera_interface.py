@@ -9,6 +9,7 @@
 ## 5. Make another version of the interface based on two cameras operating simultaneously. Nice for UV-VIS or VIS-NIR dual camera use.
 
 from PyQt5.QtCore import QTimer, Qt, QRect
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QKeySequence, QIcon, QColor, QFont, QImage, QPixmap, QPainter
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QMainWindow, QSizePolicy, QWidget, QVBoxLayout, QMenuBar, QStatusBar,
                              QHBoxLayout, QAction, QDialog, QFrame, QFileDialog, QGroupBox, QRadioButton, QGridLayout,
@@ -109,10 +110,11 @@ class CustomDialog(QDialog):
         
 ## ===========================================================================================================
 class MainWindow(QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, gui_height=None, gui_width=None, parent=None):
         super(MainWindow, self).__init__(parent)
-        #self.resize(gui_width, gui_height)
-        self.showMaximized()
+        #self.showMaximized()
+        self.gui_height = gui_height
+        self.gui_width = gui_width
 
         #self.setObjectName('MainWindow')
         self.image_counter = 0      ## the counter of the current image within the latest sequence
@@ -395,6 +397,7 @@ class MainWindow(QMainWindow):
         self.hlt_main = QHBoxLayout(self.mainframe)
         self.hlt_main.addWidget(self.camera_group)
         self.hlt_main.addLayout(self.hlt1)
+        
         return
 
     ## ===================================
@@ -531,6 +534,9 @@ class MainWindow(QMainWindow):
 
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
 
+        ## Make sure the gamma setting is turned off.
+        fsl.disable_gamma(self.nodemap)
+        
         return
 
     ## ===================================
@@ -565,8 +571,11 @@ class MainWindow(QMainWindow):
 
         self.qimg = QImage(self.img8bit, self.Ny, self.Nx, QImage.Format_RGB888)
         self.pixmap = QPixmap.fromImage(self.qimg)
+        #print('original pixmap_rect =', self.pixmap.rect())
+        self.pixmap = self.pixmap.scaled(self.gui_width, self.gui_height-100, aspectRatioMode=Qt.KeepAspectRatio)
+        #print('scaled pixmap_rect =', self.pixmap.rect())
         self.image_widget.setPixmap(self.pixmap)
-        #self.image_widget.setPixmap(self.pixmap.scaled(self.image_widget.size(), Qt.KeepAspectRatio))
+        #print(f'self.gui_width,height = ({self.mainframe.rect().width()},{self.mainframe.rect().height()}  :  image_widget_width,height = {self.image_widget.width()},{self.image_widget.height()}')
 
         return
 
@@ -1200,8 +1209,9 @@ if __name__ == '__main__':
     rect = screen.availableGeometry()
     print('Available Size for GUI: %d x %d' % (rect.width(), rect.height()))
 
-    mw = MainWindow()
+    mw = MainWindow(gui_height=rect.height(), gui_width=rect.width())
     mw.setWindowTitle('Interactive Full-Stokes Video Camera')
+    mw.setMinimumSize(rect.width(), rect.height())
     mw.show()
     mw.acquire_new_image()
     sys.exit(app.exec_())       ## start the execution loop
