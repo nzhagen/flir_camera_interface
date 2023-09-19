@@ -1143,3 +1143,92 @@ def save_image_pointer_list_to_avi(nodemap, image_list, avi_filename, image_heig
         return(False)
 
     return(result)
+
+## ====================================================================================
+def get_gamma_enabled(nodemap, verbose=False):
+    """
+    This function returns whether the camera gamma value is enabled (True) or disabled (False).
+
+    :param nodemap: Device GenICam nodemap
+    :type nodemap: CameraPtr
+    :return: True if enabled, False if disabled.
+    :rtype: bool
+    """
+
+    try:
+        node_gamma_enabled = PySpin.CBooleanPtr(nodemap.GetNode('GammaEnable'))
+        if not PySpin.IsAvailable(node_gamma_enabled) and not PySpin.IsReadable(node_gamma_enabled):
+            print('GammaEnable node is not available...')
+            return(0)
+
+        enabled = node_gamma_enabled.GetValue()
+        if verbose:
+            print(f'Gamma enabled value: {enabled}')
+    except PySpin.SpinnakerException as ex:
+        print('get_gamma_enabled(): Error: %s' % ex)
+        enabled = None
+
+    return(enabled)
+
+## ====================================================================================
+def enable_gamma(nodemap, verbose=False):
+    """
+    This function turns on the "gamma_enable" switch of the camera.
+
+    :param nodemap: Device GenICam nodemap
+    :type nodemap: CameraPtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+    try:
+        node_gamma_enabled = PySpin.CBooleanPtr(nodemap.GetNode('GammaEnable'))
+        if not PySpin.IsAvailable(node_gamma_enabled) and not PySpin.IsReadable(node_gamma_enabled):
+            print('GammaEnable node is not available...')
+            return(False)
+
+        current_value = node_gamma_enabled.GetValue()
+        if current_value:
+            pass
+        else:
+            node_gamma_enabled.SetValue(True)
+        
+        if verbose:
+            print(f'"Gamma_enabled" switch set to True')
+    except PySpin.SpinnakerException as ex:
+        print('enable_gamma(): Error: %s' % ex)
+        return(False)
+
+    return(True)
+
+## ====================================================================================
+def disable_gamma(nodemap, verbose=False):
+    """
+    This function turns off the "gamma_enable" switch of the camera.
+
+    :param nodemap: Device GenICam nodemap
+    :type nodemap: CameraPtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+
+    try:
+        node_gamma_enabled = PySpin.CBooleanPtr(nodemap.GetNode('GammaEnable'))
+        if not PySpin.IsAvailable(node_gamma_enabled) and not PySpin.IsReadable(node_gamma_enabled):
+            print('GammaEnable node is not available...')
+            return(False)
+
+        current_value = node_gamma_enabled.GetValue()
+        if not current_value:
+            pass
+        else:
+            node_gamma_enabled.SetValue(False)
+        
+        if verbose:
+            print(f'"Gamma_enabled" switch set to False')
+    except PySpin.SpinnakerException as ex:
+        print('disable_gamma(): Error: %s' % ex)
+        return(False)
+
+    return(True)
+
