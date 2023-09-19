@@ -45,7 +45,7 @@ import struct
 #
 #  What happens when the camera begins acquiring images depends on the
 #  acquisition mode. Single frame captures only a single image, multi
-#  frame catures a set number of images, and continuous captures a
+#  frame captures a set number of images, and continuous captures a
 #  continuous stream of images. Because the example calls for the
 #  retrieval of 10 images, continuous mode has been set.
 #
@@ -56,15 +56,15 @@ import struct
 #  buffer from filling up.
 #
 #  For Spinnaker's image Save() function, the allowed image formats (extensions) are:
-#       PGM 	    Portable gray map.
-#       PPM         Portable pixmap.
-#       BMP 	    Bitmap.
-#       JPEG 	    JPEG.
-#       JPEG2000 	JPEG 2000.
-#       TIFF 	    Tagged image file format.
-#       PNG 	    Portable network graphics.
-#       RAW 	    Raw data.
-#       JPEG12_C 	12 bit compressed JPEG data. 
+#       PGM       Portable gray map.
+#       PPM       Portable pixmap.
+#       BMP       Bitmap.
+#       JPEG      JPEG.
+#       JPEG2000  JPEG 2000.
+#       TIFF      Tagged image file format.
+#       PNG       Portable network graphics.
+#       RAW    	  Raw data.
+#       JPEG12_C  12 bit compressed JPEG data. 
 
 ## ====================================================================================
 def truncate_multiple(value, increment):
@@ -143,7 +143,7 @@ def set_exposure_time(nodemap, time_in_usec, verbose=False):
         if verbose:
             print(f'Exposure time: limits = ({min_exposure_time:.1f},{max_exposure_time:.1f}), value set to {node_exposure_time.GetValue():.1f} usec ...')
     except PySpin.SpinnakerException as ex:
-        print('set_exposure_time(): Error: %s' % ex)
+        print('set_exposure_time() Error: %s' % ex)
         result = False
 
     return(result)
@@ -176,7 +176,7 @@ def set_autoexposure_off(nodemap, verbose=False):
         if verbose:
             print('Turning auto-exposure off')
     except PySpin.SpinnakerException as ex:
-        print('set_autoexposure_off(): Error: %s' % ex)
+        print('set_autoexposure_off() Error: %s' % ex)
         result = False
 
     return result
@@ -209,7 +209,7 @@ def set_autoexposure_on(nodemap, verbose=False):
         if verbose:
             print('Turning auto-exposure on')
     except PySpin.SpinnakerException as ex:
-        print('set_autoexposure_on(): Error: %s' % ex)
+        print('set_autoexposure_on() Error: %s' % ex)
         result = False
 
     return(result)
@@ -276,7 +276,7 @@ def set_pixel_format(nodemap, pixfmt, verbose=False):
             print('Pixel format node not available...')
 
     except PySpin.SpinnakerException as ex:
-        print('set_pixel_format(): Error: %s' % ex)
+        print('set_pixel_format() Error: %s' % ex)
         return(False)
 
     return(result)
@@ -377,7 +377,7 @@ def set_image_region(nodemap, height, width, height_offset, width_offset, verbos
         else:
             print('Height offset node not available...')
     except PySpin.SpinnakerException as ex:
-        print('set_image_region(): Error: %s' % ex)
+        print('set_image_region() Error: %s' % ex)
         return(False)
 
     return(result)
@@ -434,7 +434,7 @@ def set_full_imagesize(nodemap, verbose=False):
             print('Image height node not available...')
 
     except PySpin.SpinnakerException as ex:
-        print('set_full_imagesize(): Error: %s' % ex)
+        print('set_full_imagesize() Error: %s' % ex)
         return(False)
 
     return(result)
@@ -486,7 +486,7 @@ def set_binning(nodemap, binning_value, verbose=False):
             print('Vertical binning node not available...')
 
     except PySpin.SpinnakerException as ex:
-        print('set_binning(): Error: %s' % ex)
+        print('set_binning() Error: %s' % ex)
         return(False)
 
     return(result)
@@ -525,7 +525,7 @@ def get_image_width_height(nodemap, verbose=False):
         else:
             print('Image height node not available...')
     except PySpin.SpinnakerException as ex:
-        print('get_image_width_height(): Error: %s' % ex)
+        print('get_image_width_height() Error: %s' % ex)
 
     return(image_width, image_height)
 
@@ -558,7 +558,7 @@ def set_autogain_off(nodemap, verbose=False):
         if verbose:
             print('Turning off auto-gain...')
     except PySpin.SpinnakerException as ex:
-        print('set_autogain_off(): Error: %s' % ex)
+        print('set_autogain_off() Error: %s' % ex)
         result = False
 
     return(result)
@@ -591,7 +591,7 @@ def set_autogain_on(nodemap, verbose=False):
         if verbose:
             print('Turning on auto-gain...')
     except PySpin.SpinnakerException as ex:
-        print('set_autogain_on(): Error: %s' % ex)
+        print('set_autogain_on() Error: %s' % ex)
         result = False
 
     return(result)
@@ -619,7 +619,7 @@ def get_framerate(nodemap, verbose=False):
         if verbose:
             print(f'Current frame rate: {current_framerate:.1f} Hz')
     except PySpin.SpinnakerException as ex:
-        print('get_framerate(): Error: %s' % ex)
+        print('get_framerate() Error: %s' % ex)
         current_framerate = 0
 
     return(current_framerate)
@@ -627,7 +627,7 @@ def get_framerate(nodemap, verbose=False):
 ## ====================================================================================
 def set_framerate(nodemap, new_framerate, verbose=False):
     """
-    This function gets the current framerate setting (in Hz) of the camera.
+    This function sets the framerate (in Hz) of the camera.
 
     :param nodemap: Device GenICam nodemap
     :type nodemap: CameraPtr
@@ -639,7 +639,7 @@ def set_framerate(nodemap, new_framerate, verbose=False):
     try:
         result = True
 
-        node_framerateenable = PySpin.CFloatPtr(nodemap.GetNode('AcquisitionFrameRateEnable'))
+        node_framerateenable = PySpin.CBooleanPtr(nodemap.GetNode('AcquisitionFrameRateEnable'))
         if not PySpin.IsAvailable(node_framerateenable) and not PySpin.IsReadable(node_framerateenable):
             print('AcquisitionFrameRateEnable node is not available...')
             return(False)
@@ -649,7 +649,7 @@ def set_framerate(nodemap, new_framerate, verbose=False):
             print('AcquisitionFrameRate node is not available...')
             return(False)
 
-        old_framerate = node_acquisition_framerate.SetValue(double(new_framerate))
+        old_framerate = node_acquisition_framerate.SetValue(float(new_framerate))
         min_framerate = node_acquisition_framerate.GetMin()
         max_framerate = node_acquisition_framerate.GetMax()
         
@@ -667,7 +667,7 @@ def set_framerate(nodemap, new_framerate, verbose=False):
         if verbose:
             print(f'Old frame rate = {old_framerate:.1f} Hz,   new frame rate: {new_framerate:.1f} Hz')
     except PySpin.SpinnakerException as ex:
-        print('set_framerate(): Error: %s' % ex)
+        print('set_framerate() Error: %s' % ex)
         result = False
 
     return(result)
