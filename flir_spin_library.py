@@ -132,7 +132,7 @@ def set_exposure_time(nodemap, time_in_usec, verbose=False):
         node_exposure_time = PySpin.CFloatPtr(nodemap.GetNode('ExposureTime'))
         if not PySpin.IsAvailable(node_exposure_time) and PySpin.IsReadable(node_exposure_time):
             print('ExposureTime node is not available.')
-            return(0.0, 0.0)
+            return(False)
 
         min_exposure_time = node_exposure_time.GetMin()
         max_exposure_time = node_exposure_time.GetMax()

@@ -42,8 +42,6 @@ import PySpin
 import flir_spin_library as fsl
 from glob import glob
 
-#print(dir(QImage))
-
 ## ===========================================================================================================
 class MPLCanvas(FigureCanvas):
     def __init__(self, noaxis=False):
@@ -116,7 +114,6 @@ class MainWindow(QMainWindow):
         self.gui_height = gui_height
         self.gui_width = gui_width
 
-        #self.setObjectName('MainWindow')
         self.image_counter = 0      ## the counter of the current image within the latest sequence
         self.navgs = 1              ## the number of frames to average for each display frame
         self.first_draw = True      ## is this the first time drawing Figure 1?
@@ -136,8 +133,11 @@ class MainWindow(QMainWindow):
         self.cwd = os.getcwd()
         self.timer_delay = 50       ## time in ms to delay before requesting a new image from the camera
         self.autoscale_brightness = True        ## whether to automatically scale the display so the darkest pixel is black and the brightest is white
+        self.has_fpp = False        ## Is a projector activated for fringe projection profilometry (FPP)?
+        self.has_lctf = False       ## Is a liquid-crystal tunable filter (LCTF) activated?
+        self.has_motor = False      ## Is the Thorlabs rotational motor activated?
         
-        ## Whether to use tone-mapping when converting from 12-bit to 8-bit for display. If the scale is 16 then use bit truncation rather than tone-mapping.
+        ## Whether to use tone-mapping when converting from 12-bit to 8-bit for display. If tone_mapping_scale is 16 then use bit truncation rather than tone-mapping.
         self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
         #self.tone_mapping_scale = 16
         self.img8bit = None         ## the 8-bit (tone-mapped) version of the raw image
@@ -180,6 +180,7 @@ class MainWindow(QMainWindow):
         self.saturation_checkbox.setChecked(True)
         self.saturation_checkbox.stateChanged.connect(self.saturationCheckChange)
 
+        ## This "autoscale_brightness" is linked to the tone mapping of the display. But I can't remember what I was doing with this.
         #self.autoscale_checkbox = QCheckBox('Autoscale display brightness', self)
         #self.autoscale_checkbox.setChecked(self.autoscale_brightness)
         #self.autoscale_checkbox.stateChanged.connect(self.autoscaleChange)
@@ -325,6 +326,8 @@ class MainWindow(QMainWindow):
         self.autoexp_hlt = QHBoxLayout()
         self.do_autoexposure_button = QPushButton('Auto-adjust exposure')
         self.do_autoexposure_button.clicked.connect(self.do_autoexposure)
+        self.do_autoexposure_button.setEnabled(False)                      ## disabled the button until I get the function working
+
         self.show_histogram_button = QPushButton('Show image histogram')
         self.show_histogram_button.clicked.connect(self.show_histogram)
         self.show_histogram_button.setEnabled(False)                      ## disabled the button until I get the function working
@@ -649,9 +652,9 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def gainChange(self):
-#        if (self.ncameras > 0) and self.live_checkbox.isChecked():
-#            self.cam_gain = self.cam_gain_spinbox.value()
-#            fsl.set_gain(self.cam_gain)
+        if (self.ncameras > 0) and self.live_checkbox.isChecked():
+            self.cam_gain = self.cam_gain_spinbox.value()
+            fsl.set_gain(self.cam_gain)
         return
 
     ## ===================================
@@ -941,7 +944,6 @@ class MainWindow(QMainWindow):
         if (self.ncameras == 0):
             return
 
-        #temporary = self.binning        ## store the current value in case there is an error in the new setting
         if not fsl.set_binning(self.nodemap, self.binning_spinbox.value()):
             self.outputbox.appendPlainText(f'Failed to set the binning value!')
             return
