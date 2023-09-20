@@ -360,6 +360,15 @@ class MainWindow(QMainWindow):
         self.lctf_hlt.addWidget(self.activate_lctf_button)
         self.lctf_hlt.addWidget(self.save_lctfdata_button)
 
+        self.motor_hlt = QHBoxLayout()
+        self.activate_motor_button = QPushButton('Activate Motor')
+        self.activate_motor_button.clicked.connect(self.activate_motor)
+        self.save_hurlbut_data_button = QPushButton('Save Hurlbut Filter Dataset')
+        self.save_hurlbut_data_button.clicked.connect(self.collect_hurlbut_filter_imageset)
+        self.save_hurlbut_data_button.setEnabled(False)       ## disabled the button until LCTF is activated
+        self.motor_hlt.addWidget(self.activate_motor_button)
+        self.motor_hlt.addWidget(self.save_hurlbut_data_button)
+
         self.textbox_vlt = QVBoxLayout()
         font = QFont()
         font.setStyleHint(QFont().Monospace)
@@ -383,6 +392,7 @@ class MainWindow(QMainWindow):
         self.vlt1.addLayout(self.autoexp_hlt)
         self.vlt1.addLayout(self.fpp_hlt)
         self.vlt1.addLayout(self.lctf_hlt)
+        self.vlt1.addLayout(self.motor_hlt)
         self.vlt1.addLayout(self.textbox_vlt)
 
         self.hlt_main = QHBoxLayout(self.mainframe)
@@ -1115,6 +1125,50 @@ class MainWindow(QMainWindow):
 
         return
 
+    ## ===================================
+    def activate_motor(self):
+        if self.has_motor:
+            return
+
+        from device_k10cr1 import thorlabs_motor
+        
+        self.outputbox.appendPlainText(f'Initializing the motor.\nThis will take a minute...')
+        time.sleep(0.5)     ## Give time for the above message to appear before starting to initialize, else it shows up only after initializing is done
+        self.k10cr1_motor_obj = thorlabs_motor()
+        self.motor = self.k10cr1_motor_obj.motor
+        self.has_motor = True
+        self.save_hurlbut_data_button.setEnabled(True)
+        
+        return
+
+    ## ===================================
+    def collect_hurlbut_filter_imageset(self):
+        file_dir = self.file_dir_editbox.text()
+        if file_dir and (file_dir[-1] not in ('/','\\')):
+            file_dir += '/'
+        file_prefix = self.file_prefix_editbox.text()
+        file_suffix = self.file_suffix_editbox.text()
+
+        self.nangles = 10
+        self.angle_stepsize = 5.0
+        self.hurlbut_angles = arange(self.nangles) * self.angle_stepsize
+
+        for a in self.hurlbut_angles:
+            self.motor.move_to(a)
+            img = self.capture_image(1)
+            if img is None:
+                self.outputbox.appendPlainText(f'Failed to collect an image!')
+                return
+            else:
+                self.image = img
+
+            filename = f'{file_dir}{file_prefix}_{a:03}.{file_suffix}'
+            self.fileSave(filename)
+            self.outputbox.appendPlainText(f'LCTF image collection is complete.')
+
+        return
+
+## ======================================================================================================
 ## ======================================================================================================
 def is_even(x):
     return(x % 2 == 0)
