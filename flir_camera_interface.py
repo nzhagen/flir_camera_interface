@@ -353,9 +353,9 @@ class MainWindow(QMainWindow):
 
         self.lctf_hlt = QHBoxLayout()
         self.activate_lctf_button = QPushButton('Activate LCTF')
-        self.activate_lctf_button.clicked.connect(self.initialize_lctf)
+        self.activate_lctf_button.clicked.connect(self.activate_lctf)
         self.save_lctfdata_button = QPushButton('Save LCTF Dataset')
-        self.save_lctfdata_button.clicked.connect(self.collect_lctf_images)
+        self.save_lctfdata_button.clicked.connect(self.collect_lctf_imageset)
         self.save_lctfdata_button.setEnabled(False)       ## disabled the button until LCTF is activated
         self.lctf_hlt.addWidget(self.activate_lctf_button)
         self.lctf_hlt.addWidget(self.save_lctfdata_button)
@@ -1081,44 +1081,18 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def initialize_lctf(self):
-        import kurios
-
-        devs = kurios.KuriosListDevices()
-        if (len(devs) <= 0):
-            self.outputbox.appendPlainText(f'No LCTF device was detected. Aborting...')
+    def activate_lctf(self):
+        if self.has_lctf:
             return
 
-        ## Initialize the handle to Kurios' common functions, then set the main parameters of the system.
-        Kurios = devs[0]
-        self.lctf_hdl = kurios.CommonFunc(Kurios[0])
-        kurios.SetMainParameters(self.lctf_hdl)   # once you understand the interface, you won't need this command
-        result = kurios.KuriosSetOutputMode(self.lctf_hdl, 2) ## 1 = manual; 2 = sequenced(internal clock triggered) ; 3 = sequenced(external triggered); 4 = analog signal controlled(  internal clock triggered); 5 = analog signal controlled(external triggered)
+        from device_kurios import kurios_lctf
 
-        self.minwave = [0]  ## the minimum wavelength in nm allowed by this LCTF system
-        self.maxwave = [0]  ## the maximum wavelength in nm allowed by this LCTF system
-        result = kurios.KuriosGetSpecification(self.lctf_hdl, self.maxwave, self.minwave)
-
-        if (self.lctf_currentwave >= self.minwave) and (self.lctf_currentwave <= self.maxwave):
-            result = kurios.KuriosSetWavelength(self.lctf_hdl, self.lctf_currentwave) ## the range of wavelength is between MinWavelength and MaxWavelength
-
-        self.has_lctf = True
+        self.save_lctfdata_button.setEnabled(True)
 
         return
 
     ## ===================================
-    def set_next_lctf_wave(self):
-        self.lctf_wave_counter += 1
-        if (self.lctf_currentwave >= self.minwave) and (self.lctf_currentwave <= self.maxwave):
-            self.lctf_currentwave = self.wavelist[self.lctf_wave_counter]
-        else:
-            self.outputbox.appendPlainText(f'Failed to set the LCTF wavelength to {self.lctf_currentwave}nm.')
-            self.lctf_wave_counter = 0
-            self.lctf_currentwave = self.wavelist[self.lctf_wave_counter]
-        return
-
-    ## ===================================
-    def collect_lctf_images(self):
+    def collect_lctf_imageset(self):
         file_dir = self.file_dir_editbox.text()
         if file_dir and (file_dir[-1] not in ('/','\\')):
             file_dir += '/'
@@ -1140,26 +1114,6 @@ class MainWindow(QMainWindow):
             self.outputbox.appendPlainText(f'LCTF image collection is complete.')
 
         return
-
-    ## ===================================
-    def show_histogram(self):
-        self.outputbox.appendPlainText(f'Histogram function is not yet implemented')
-        return
-    
-    ## ===================================
-    def image_clicked(self, event):
-        if (event.button() == 1):
-            self.outputbox.appendPlainText("Left button clicked")
-        elif (event.button() == 2):
-            self.outputbox.appendPlainText("Right button clicked")
-        
-        live_data_state = self.live_checkbox.isChecked()
-        self.live_checkbox.setChecked(False)
-        self.dlg = CustomDialog(self.image)
-        self.dlg.exec()        
-        self.live_checkbox.setChecked(live_data_state)
-        return
-    
 
 ## ======================================================================================================
 def is_even(x):
