@@ -142,18 +142,6 @@ class MainWindow(QMainWindow):
         #self.tone_mapping_scale = 16
         self.img8bit = None         ## the 8-bit (tone-mapped) version of the raw image
 
-        ## Fringe projection profilometry (FPP) stuff
-        self.has_fpp = False        ## Is the FPP system activated?
-        self.nphases = 4            ## the number of pattern images to use for estimating phase
-        self.nfringes = 16          ## the number of fringes to project across the image
-        self.phasenum = 0           ## the number of the current projection pattern (from 0 to [1-self.nphases])
-
-        ## Liquid-crystal tunable filter (LCTF) stuff
-        self.has_lctf = False
-        self.lctf_wavelist = arange(420,730,10)     ## returns a list from 420 to 720 in increments of 10
-        self.lctf_wave_counter = 0          ## counter for which element of wavelist is the current one
-        self.lctf_currentwave = self.lctf_wavelist[self.lctf_wave_counter]    ## the current wavelength
-
         ## Define the image scale for each image -- we will need these for the manual controls on the colorbars of each image.
         self.image_vmin_str = 'Min'
         self.image_vmax_str = 'Max'
@@ -356,9 +344,9 @@ class MainWindow(QMainWindow):
 
         self.fpp_hlt = QHBoxLayout()
         self.activate_fpp_button = QPushButton('Activate FPP')
-        self.activate_fpp_button.clicked.connect(self.initialize_projector)
+        self.activate_fpp_button.clicked.connect(self.activate_projector)
         self.save_fppdata_button = QPushButton('Save FPP Dataset')
-        self.save_fppdata_button.clicked.connect(self.record_fpp_imageset)
+        self.save_fppdata_button.clicked.connect(self.collect_fpp_imageset)
         self.save_fppdata_button.setEnabled(False)       ## disabled the button until FPP is activated
         self.fpp_hlt.addWidget(self.activate_fpp_button)
         self.fpp_hlt.addWidget(self.save_fppdata_button)
@@ -998,65 +986,83 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def initialize_projector(self):
+    def show_histogram(self):
+        self.outputbox.appendPlainText(f'Histogram function is not yet implemented')
+        return
+
+    ## ===================================
+    def image_clicked(self, event):
+        if (event.button() == 1):
+            self.outputbox.appendPlainText("Left button clicked")
+        elif (event.button() == 2):
+            self.outputbox.appendPlainText("Right button clicked")
+
+        live_data_state = self.live_checkbox.isChecked()
+        self.live_checkbox.setChecked(False)
+        self.dlg = CustomDialog(self.image)
+        self.dlg.exec()
+        self.live_checkbox.setChecked(live_data_state)
+        return
+
+    ## ===================================
+    def activate_projector(self):
         if self.has_fpp:
             return
 
-        import slmpy
+        from device_projector import fpp_projector
 
         try:
-            ## Create the object that handles the SLM array.
-            ## By default, "slmpy" uses the second display (i.e. monitor=1) for displaying images. If you have more
-            ## than one monitor/projector/SLM, you may want to specify which monitor is the monitor/projector/SLM.
-            ## The "isImageLock=True" variable means that the program will wait until the new image display is completed
-            ## before continuing to the next step in the code (in case you are operating in a fast loop).
-            self.slm = slmpy.SLMdisplay(monitor=1, isImageLock=True)
+            self.fpp_projector_obj = fpp_projector()
+            self.proj = self.fpp_projector_obj.proj
         except ValueError as err:
             self.outputbox.appendPlainText(f'Error: {err}')
             return
 
+        self.fpp_nphases = 4            ## the number of pattern images to use for estimating phase
+        self.fpp_nfringes = 16          ## the number of fringes to project across the image
+        self.fpp_phasenum = 0           ## the number of the current projection pattern (from 0 to [1-self.nphases])
+
         ## Ask for the pixel dimensions of the monitor/projector/SLM display.
-        (self.resY,self.resX) = self.slm.getSize()
-        self.outputbox.appendPlainText(f'Projecting an ({self.resX},{self.resY}) image.')
+        self.outputbox.appendPlainText(f'Projecting an ({self.fpp_projector_obj.Nx},{self.fpp_projector_obj.Ny}) image.')
 
         ## Make a set of coordinates for generating the fringe patterns for projection.
-        (self.proj_xcoord,self.proj_ycoord) = indices((self.resX,self.resY))
+        (self.proj_xcoord,self.proj_ycoord) = indices((self.fpp_projector_obj.Nx,self.fpp_projector_obj.Ny))
 
-        self.project_image()
+        self.update_projector_pattern()
         self.has_fpp = True
         self.save_fppdata_button.setEnabled(True)
 
         return
 
     ## ===================================
-    def project_image(self):
+    def update_projector_pattern(self):
         ## If the current phase is equal to "nphases" then this is the same thing as setting it to zero.
-        if (self.phasenum >= self.nphases):
-            self.phasenum = 0
+        if (self.fpp_phasenum >= self.fpp_nphases):
+            self.fpp_phasenum = 0
 
-        k = 2.0 * pi * self.nfringes / self.resY
-        phi_shift = 2.0 * pi * self.phasenum / self.nphases
+        k = 2.0 * pi * self.fpp_nfringes / self.fpp_projector_obj.Ny
+        phi_shift = 2.0 * pi * self.fpp_phasenum / self.fpp_nphases
 
         ## Generate the sinusoidal fringe pattern. Note that this has to be uint8.
         self.proj_img = uint8(rint(255.0*(0.5 + 0.5*cos(k*self.proj_ycoord + phi_shift))))
 
-        ## Send this image to the monirot/projector/SLM.
-        self.slm.updateArray(self.proj_img)
+        ## Send this image to the monitor/projector/SLM.
+        self.fpp_projector_obj.project_pattern(self.proj_img)
 
         return
 
     ## ===================================
-    def record_fpp_imageset(self):
+    def collect_fpp_imageset(self):
         file_dir = self.file_dir_editbox.text()
         if file_dir and (file_dir[-1] not in ('/','\\')):
             file_dir += '/'
         file_prefix = self.file_prefix_editbox.text()
         file_suffix = self.file_suffix_editbox.text()
 
-        for shiftnum in range(self.nphases):
-            self.phasenum = shiftnum
-            phasevalue_deg = int(rint(360.0 * self.phasenum / self.nphases))
-            self.project_image()
+        for n in range(self.fpp_nphases):
+            self.fpp_phasenum = n
+            phasevalue_deg = int(rint(360.0 * self.fpp_phasenum / self.fpp_nphases))
+            self.update_projector_pattern()
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
@@ -1064,13 +1070,13 @@ class MainWindow(QMainWindow):
             else:
                 self.image = img
 
-            ## Return to the phase zero position.
-            self.phasenum = 0
-            self.project_image()
-
             filename = f'{file_dir}{file_prefix}_{phasevalue_deg:03}.{file_suffix}'
             self.fileSave(filename)
             self.outputbox.appendPlainText(f'FPP image collection is complete.')
+
+        ## Return to the phase zero position.
+        self.fpp_phasenum = 0
+        self.update_projector_pattern()
 
         return
 
