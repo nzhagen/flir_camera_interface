@@ -449,9 +449,7 @@ class MainWindow(QMainWindow):
 
         ## Close the monitor/projector/SLM object.
         if self.has_lctf:
-            result = kurios.KuriosClose(self.lctf_hdl)
-            if (result != 0):
-                print(f'Kurios LCTF failed to close. Error = {result}')
+            self.lctf_device_handle.close()
 
         self.deleteLater()
         return
@@ -1098,10 +1096,20 @@ class MainWindow(QMainWindow):
         if self.has_lctf:
             return
 
-        from device_kurios import kurios_lctf
+        from device_kurios import KuriosLCTFdevice
 
+        self.lctf_device_handle = KuriosLCTFdevice()
+        self.has_lctf = True
         self.save_lctfdata_button.setEnabled(True)
 
+        return
+
+    ## ===================================
+    def set_lctf_wavelength(self, new_wavelength):
+        if self.lctf_device_handle.set_wavelength(new_wavelength):
+            self.lctf_currentwave = new_wavelength
+        else:
+            self.outputbox.appendPlainText(f'Failed to set the LCTF wavelength to {new_wavelength}nm.')
         return
 
     ## ===================================
@@ -1112,9 +1120,13 @@ class MainWindow(QMainWindow):
         file_prefix = self.file_prefix_editbox.text()
         file_suffix = self.file_suffix_editbox.text()
 
-        for w in range(len(self.wavelist)):
-            self.set_next_lctf_wave(w)
-            wavevalue_nm = self.lctf_currentwave
+        self.lctf_wavelist = uint16(linspace(430,720,30))     ## returns a list from 430 to 720 in increments of 10
+        self.lctf_wave_counter = 0          ## counter for which element of wavelist is the current one
+        self.lctf_currentwave = self.lctf_wavelist[self.lctf_wave_counter]    ## the current wavelength
+
+        for wave_nm in self.lctf_wavelist:
+            self.set_lctf_wavelength(wave_nm)
+            self.lctf_currentwave = wave_nm
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
@@ -1122,8 +1134,11 @@ class MainWindow(QMainWindow):
             else:
                 self.image = img
 
-            filename = f'{file_dir}{file_prefix}_{wavevalue_nm:03}.{file_suffix}'
+            filename = f'{file_dir}{file_prefix}_{wave_nm:03}.{file_suffix}'
             self.fileSave(filename)
+
+        ## Return to the 550nm default wavelength.
+        self.set_lctf_wavelength(550)
             self.outputbox.appendPlainText(f'LCTF image collection is complete.')
 
         return
