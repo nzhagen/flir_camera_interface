@@ -3,9 +3,11 @@ import sys
 import PySpin
 from numpy import empty, amin, amax, array, zeros, arange, uint16
 import struct
+import io
+from contextlib import redirect_stdout
 
 # *** NOTES ***
-# 
+#
 # The naming convention of QuickSpin enumerations is the name of the
 # enumeration node followed by an underscore and the symbolic of
 # the entry node. Selecting "Off" on the "ExposureAuto" node is
@@ -64,7 +66,10 @@ import struct
 #       TIFF      Tagged image file format.
 #       PNG       Portable network graphics.
 #       RAW    	  Raw data.
-#       JPEG12_C  12 bit compressed JPEG data. 
+#       JPEG12_C  12 bit compressed JPEG data.
+
+# Defines max number of characters that will be printed out for any node information
+MAX_CHARS = 45
 
 ## ====================================================================================
 def truncate_multiple(value, increment):
@@ -128,7 +133,7 @@ def set_exposure_time(nodemap, time_in_usec, verbose=False):
             node_exposure_auto.SetIntValue(2)
             if verbose:       ## if you want to get the *name* of the autoexposure setting, then try this block
                 print('Turning off AutoExposure ...')
-        
+
         node_exposure_time = PySpin.CFloatPtr(nodemap.GetNode('ExposureTime'))
         if not PySpin.IsAvailable(node_exposure_time) and PySpin.IsReadable(node_exposure_time):
             print('ExposureTime node is not available.')
@@ -139,7 +144,7 @@ def set_exposure_time(nodemap, time_in_usec, verbose=False):
         set_time = max((time_in_usec, min_exposure_time))
         set_time = min((set_time, max_exposure_time))
         node_exposure_time.SetValue(set_time)
-        
+
         if verbose:
             print(f'Exposure time: limits = ({min_exposure_time:.1f},{max_exposure_time:.1f}), value set to {node_exposure_time.GetValue():.1f} usec ...')
     except PySpin.SpinnakerException as ex:
@@ -158,7 +163,7 @@ def set_autoexposure_off(nodemap, verbose=False):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
- 
+
     try:
         result = True
 
@@ -171,7 +176,7 @@ def set_autoexposure_off(nodemap, verbose=False):
         if not PySpin.IsAvailable(node_exposure_auto_off) and PySpin.IsReadable(node_exposure_auto_off):
             print('Autoexposure_off node is not available.')
             return(False)
-        
+
         node_exposure_auto.SetIntValue(node_exposure_auto_off.GetValue())
         if verbose:
             print('Turning auto-exposure off')
@@ -204,7 +209,7 @@ def set_autoexposure_on(nodemap, verbose=False):
         if not PySpin.IsAvailable(node_exposure_auto_on) and PySpin.IsReadable(node_exposure_auto_on):
             print('Autoexposure_continuous node is not available.')
             return(False)
-        
+
         node_exposure_auto.SetIntValue(node_exposure_auto_on.GetValue())
         if verbose:
             print('Turning auto-exposure on')
@@ -284,9 +289,9 @@ def set_pixel_format(nodemap, pixfmt, verbose=False):
 ## ====================================================================================
 def set_image_region(nodemap, height, width, height_offset, width_offset, verbose=False):
     """
-    Configures the width, height, width offset, and height offset. These settings must be applied before 
+    Configures the width, height, width offset, and height offset. These settings must be applied before
     BeginAcquisition() is called; otherwise, they will be read only. Also, it is important to note that
-    settings are applied immediately. This means if you plan to reduce the width and move the x offset 
+    settings are applied immediately. This means if you plan to reduce the width and move the x offset
     accordingly, you need to apply such changes in the appropriate order.
 
     :param nodemap: Device GenICam nodemap
@@ -324,7 +329,7 @@ def set_image_region(nodemap, height, width, height_offset, width_offset, verbos
         else:
             print('Offset Y node not available...')
 
-        ## Set image width. Find out what the image pixel increment value is. Then you can check to see if the set 
+        ## Set image width. Find out what the image pixel increment value is. Then you can check to see if the set
         ## value is a proper integer multiple of the increment before trying to set the value.
         node_width = PySpin.CIntegerPtr(nodemap.GetNode('WidthMax'))
         if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
@@ -385,7 +390,7 @@ def set_image_region(nodemap, height, width, height_offset, width_offset, verbos
 ## ====================================================================================
 def set_full_imagesize(nodemap, verbose=False):
     """
-    Sets the camera's width & height to be the maximum possible (no binning and no cropping). These settings must be 
+    Sets the camera's width & height to be the maximum possible (no binning and no cropping). These settings must be
     applied before BeginAcquisition() is called.
 
     :param nodemap: Device GenICam nodemap
@@ -418,7 +423,7 @@ def set_full_imagesize(nodemap, verbose=False):
         else:
             print('Offset Y node not available...')
 
-        ## Set image width. Find out what the image pixel increment value is. Then you can check to see if the set 
+        ## Set image width. Find out what the image pixel increment value is. Then you can check to see if the set
         ## value is a proper integer multiple of the increment before trying to set the value.
         node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
         if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
@@ -501,11 +506,11 @@ def get_image_width_height(nodemap, verbose=False):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
-    
+
     ## Initialize to all zero. If errors occur, then all-zeros indicates the error condition.
     image_width = 0
     image_height = 0
-    
+
     try:
         ## Get the image width
         node_width = PySpin.CIntegerPtr(nodemap.GetNode('WidthMax'))
@@ -540,7 +545,7 @@ def set_autogain_off(nodemap, verbose=False):
     :rtype: bool
     """
     # Turn off automatic exposure mode
- 
+
     try:
         result = True
 
@@ -586,7 +591,7 @@ def set_autogain_on(nodemap, verbose=False):
         if not PySpin.IsAvailable(gain_auto_continuous) and PySpin.IsReadable(gain_auto_continuous):
             print('Autogain_continuous node not available...')
             return(False)
-       
+
         node_gain_auto.SetIntValue(gain_auto_continuous.GetValue())
         if verbose:
             print('Turning on auto-gain...')
@@ -652,17 +657,17 @@ def set_framerate(nodemap, new_framerate, verbose=False):
         old_framerate = node_acquisition_framerate.SetValue(float(new_framerate))
         min_framerate = node_acquisition_framerate.GetMin()
         max_framerate = node_acquisition_framerate.GetMax()
-        
+
         if (new_framerate > max_framerate):
             print('Cannot set the frame rate to {new_framerate:.1f} Hz, which is above the max allowed value of {max_framerate:.1f} Hz.')
             print('Defaulting to {max_framerate:.1f} Hz ...')
             new_framerate = max_framerate
-        
+
         if (new_framerate < min_framerate):
             print('Cannot set the frame rate to {new_framerate:.1f} Hz, which is below the min allowed value of {min_framerate:.1f} Hz.')
             print('Defaulting to {min_framerate:.1f} Hz ...')
             new_framerate = min_framerate
-        
+
         node_acquisition_framerate.SetValue(double(new_framerate))
         if verbose:
             print(f'Old frame rate = {old_framerate:.1f} Hz,   new frame rate: {new_framerate:.1f} Hz')
@@ -712,7 +717,7 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
 
         image_set = zeros((image_height,image_width,num_images), 'uint16')
         ts_set = zeros(num_images, 'uint64')
-        
+
         ## Retrieve, convert, and save images
         for i in range(num_images):
             try:
@@ -758,7 +763,7 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
         ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
         ## properly and do not need to be power-cycled to maintain integrity.
         cam.EndAcquisition()
-    
+
     except PySpin.SpinnakerException as ex:
         print('acquire_num_images(): Error 2: %s' % ex)
         return(None, 0)
@@ -783,7 +788,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
     try:
         ## Begin image acquisition. Image acquisition must be ended when no more images are needed.
         cam.BeginAcquisition()
- 
+
         ## Retrieve, convert, and save the image.
         try:
             ## Retrieve the next received image. Capturing an image houses images on the camera buffer. Trying to
@@ -817,7 +822,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
                 ## This is the numpy array result to return. Flip up-down to fit bottom-left origin display.
                 image_data = image_result.GetNDArray()
                 ts = image_result.GetTimeStamp()
-                
+
                 ## Release image. Images retrieved directly from the camera (i.e. non-converted
                 ## images) need to be released in order to keep from filling the buffer.
                 image_result.Release()
@@ -829,7 +834,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
         ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
         ## properly and do not need to be power-cycled to maintain integrity.
         cam.EndAcquisition()
-    
+
     except PySpin.SpinnakerException as ex:
         print('acquire_one_image(): Error 2: %s' % ex)
         return(None, 0)
@@ -873,7 +878,7 @@ def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_s
 
         ## Begin acquiring images. Image acquisition must be ended when no more images are needed.
         cam.BeginAcquisition()
-        
+
         s = ''
 
         ## Retrieve, convert, and save images
@@ -898,7 +903,7 @@ def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_s
                     else:
                         image_converted = image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
                     image_converted.Save(filename)
-                   
+
                     if verbose:
                         s += f'Saved "{filename}": ts={image_result.GetTimeStamp()}\n'
                         #print(f'Saved "{filename}": ts={image_result.GetTimeStamp()}')
@@ -914,7 +919,7 @@ def video_fastsave(cam, nodemap, num_images, file_dir='', file_prefix='', file_s
         ## End acquisition. Ending acquisition appropriately helps ensure that devices clean up
         ## properly and do not need to be power-cycled to maintain integrity.
         cam.EndAcquisition()
-    
+
     except PySpin.SpinnakerException as ex:
         print('video_fastsave(): Error 2: %s' % ex)
         return(None, 0)
@@ -931,7 +936,7 @@ def get_image_minmax(nodemap, verbose=False):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
-    
+
     ## Initialize to all zero. If errors occur, then all-zeros indicates the error condition.
     min_width = 0
     max_width = 0
@@ -1029,7 +1034,7 @@ def set_exposure_compensation_off(nodemap, verbose=False):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
- 
+
     try:
         result = True
 
@@ -1047,7 +1052,7 @@ def set_exposure_compensation_off(nodemap, verbose=False):
         if not PySpin.IsAvailable(node_exposure_compensation_auto_off) and PySpin.IsReadable(node_exposure_compensation_auto_off):
             print('Autoexposure_off node is not available.')
             return(False)
-        
+
         node_exposure_compensation_auto.SetIntValue(node_exposure_compensation_auto_off.GetValue())
         if verbose:
             print('Turning auto exposure compensation off')
@@ -1067,7 +1072,7 @@ def set_exposure_compensation_on(nodemap, verbose=False):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
- 
+
     try:
         result = True
 
@@ -1085,7 +1090,7 @@ def set_exposure_compensation_on(nodemap, verbose=False):
         if not PySpin.IsAvailable(node_exposure_compensation_auto_on) and PySpin.IsReadable(node_exposure_compensation_auto_on):
             print('Exposure_compensation_on node is not available.')
             return(False)
-        
+
         node_exposure_compensation_auto.SetIntValue(node_exposure_compensation_auto_on.GetValue())
         if verbose:
             print('Turning auto exposure compensation on')
@@ -1192,7 +1197,7 @@ def enable_gamma(nodemap, verbose=False):
             pass
         else:
             node_gamma_enabled.SetValue(True)
-        
+
         if verbose:
             print(f'"Gamma_enabled" switch set to True')
     except PySpin.SpinnakerException as ex:
@@ -1223,7 +1228,7 @@ def disable_gamma(nodemap, verbose=False):
             pass
         else:
             node_gamma_enabled.SetValue(False)
-        
+
         if verbose:
             print(f'"Gamma_enabled" switch set to False')
     except PySpin.SpinnakerException as ex:
@@ -1232,3 +1237,531 @@ def disable_gamma(nodemap, verbose=False):
 
     return(True)
 
+## ====================================================================================
+class ReadType:
+    """
+    Use the following constants to determine whether nodes are read
+    as Value nodes or their individual types.
+    """
+    VALUE = 0,
+    INDIVIDUAL = 1
+
+## ====================================================================================
+def recursive_print_dict(d, indent = 0 ):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            print("\t" * indent, f"{k}:")
+            recursive_print_dict(v, indent+1)
+        else:
+            print("\t" * indent, f"{k}:{v}")
+
+## ====================================================================================
+def retrieve_value_node(node, statusdict):
+    """
+    Retrieves and prints the display name and value of all node types as value nodes.
+    A value node is a general node type that allows for the reading and writing of any node type as a string.
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create value node
+        node_value = PySpin.CValuePtr(node)
+
+        # Retrieve display name
+        #
+        # *** NOTES ***
+        # A node's 'display name' is generally more appropriate for output and
+        # user interaction whereas its 'name' is what the camera understands.
+        # Generally, its name is the same as its display name but without
+        # spaces - for instance, the name of the node that houses a camera's
+        # serial number is 'DeviceSerialNumber' while its display name is
+        # 'Device Serial Number'.
+        display_name = node_value.GetDisplayName()
+
+        # Retrieve value of any node type as string
+        #
+        # *** NOTES ***
+        # Because value nodes return any node type as a string, it can be much
+        # easier to deal with nodes as value nodes rather than their actual
+        # individual types.
+        value = node_value.ToString()
+
+        # Cap length at MAX_CHARS
+        value = value[:MAX_CHARS] + '...' if len(value) > MAX_CHARS else value
+
+        # Print value
+        statusdict[display_name] = value
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_string_node(node, statusdict):
+    """
+    Retrieves and prints the display name and value of a string node.
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create string node
+        node_string = PySpin.CStringPtr(node)
+
+        # Retrieve string node value
+        #
+        # *** NOTES ***
+        # Functions in Spinnaker C++ that use gcstring types
+        # are substituted with Python strings in PySpin.
+        # The only exception is shown in the DeviceEvents example, where
+        # the callback function still uses a wrapped gcstring type.
+        display_name = node_string.GetDisplayName()
+
+        # Ensure that the value length is not excessive for printing
+        value = node_string.GetValue()
+        value = value[:MAX_CHARS] + '...' if len(value) > MAX_CHARS else value
+
+        # Print value; 'level' determines the indentation level of output
+        statusdict[display_name] = value
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_integer_node(node, statusdict):
+    """
+    Retrieves and prints the display name and value of an integer node.
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create integer node
+        node_integer = PySpin.CIntegerPtr(node)
+
+        # Get display name
+        display_name = node_integer.GetDisplayName()
+
+        # Retrieve integer node value
+        #
+        # *** NOTES ***
+        # All node types except base nodes have a ToString()
+        # method which returns a value as a string.
+        value = node_integer.GetValue()
+
+        # Print value
+        statusdict[display_name] = value
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_float_node(node, statusdict):
+    """
+    Retrieves and prints the display name and value of a float node.
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create float node
+        node_float = PySpin.CFloatPtr(node)
+
+        # Get display name
+        display_name = node_float.GetDisplayName()
+
+        # Retrieve float value
+        value = node_float.GetValue()
+
+        # Print value
+        statusdict[display_name] = value
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_boolean_node(node, statusdict):
+    """
+    Retrieves and prints the display name and value of a Boolean node.
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create Boolean node
+        node_boolean = PySpin.CBooleanPtr(node)
+
+        # Get display name
+        display_name = node_boolean.GetDisplayName()
+
+        # Retrieve Boolean value
+        value = node_boolean.GetValue()
+
+        # Print Boolean value
+        # NOTE: In Python a Boolean will be printed as "True" or "False".
+        statusdict[display_name] = value
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_command_node(node, statusdict):
+    """
+    This function retrieves and prints the display name and tooltip of a command
+    node, limiting the number of printed characters to a macro-defined maximum.
+    The tooltip is printed below because command nodes do not have an intelligible
+    value.
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create command node
+        node_command = PySpin.CCommandPtr(node)
+
+        # Get display name
+        display_name = node_command.GetDisplayName()
+
+        # Retrieve tooltip
+        #
+        # *** NOTES ***
+        # All node types have a tooltip available. Tooltips provide useful
+        # information about nodes. Command nodes do not have a method to
+        # retrieve values as their is no intelligible value to retrieve.
+        tooltip = node_command.GetToolTip()
+
+        # Ensure that the value length is not excessive for printing
+        tooltip = tooltip[:MAX_CHARS] + '...' if len(tooltip) > MAX_CHARS else tooltip
+
+        # Print display name and tooltip
+        statusdict[display_name] = tooltip
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_enumeration_node_and_current_entry(node, statusdict):
+    """
+    This function retrieves and prints the display names of an enumeration node
+    and its current entry (which is actually housed in another node unto itself).
+
+    :param node: Node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create enumeration node
+        node_enumeration = PySpin.CEnumerationPtr(node)
+
+        # Retrieve current entry as enumeration node
+        #
+        # *** NOTES ***
+        # Enumeration nodes have three methods to differentiate between: first,
+        # GetIntValue() returns the integer value of the current entry node;
+        # second, GetCurrentEntry() returns the entry node itself; and third,
+        # ToString() returns the symbolic of the current entry.
+        node_enum_entry = PySpin.CEnumEntryPtr(node_enumeration.GetCurrentEntry())
+
+        # Get display name
+        display_name = node_enumeration.GetDisplayName()
+
+        # Retrieve current symbolic
+        #
+        # *** NOTES ***
+        # Rather than retrieving the current entry node and then retrieving its
+        # symbolic, this could have been taken care of in one step by using the
+        # enumeration node's ToString() method.
+        entry_symbolic = node_enum_entry.GetSymbolic()
+
+        # Print current entry symbolic
+        statusdict[display_name] = entry_symbolic
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def retrieve_category_node_and_all_features(node, statusdict):
+    """
+    This function retrieves and prints out the display name of a category node
+    before printing all child nodes. Child nodes that are also category nodes are
+    printed recursively.
+
+    :param node: Category node to get information from.
+    :type node: INode
+    :param level: Depth to indent output.
+    :type level: int
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+
+        # Create category node
+        node_category = PySpin.CCategoryPtr(node)
+
+        # Get and print display name
+        display_name = node_category.GetDisplayName()
+
+        if (display_name == 'Root'):
+            newdict = statusdict
+        else:
+            statusdict[display_name] = {}
+            newdict = statusdict[display_name]
+
+        # Retrieve and iterate through all children
+        #
+        # *** NOTES ***
+        # The two nodes that typically have children are category nodes and
+        # enumeration nodes. Throughout the examples, the children of category nodes
+        # are referred to as features while the children of enumeration nodes are
+        # referred to as entries. Keep in mind that enumeration nodes can be cast as
+        # category nodes, but category nodes cannot be cast as enumerations.
+        for node_feature in node_category.GetFeatures():
+
+            # Ensure node is available and readable
+            if not PySpin.IsAvailable(node_feature) or not PySpin.IsReadable(node_feature):
+                continue
+
+            # Category nodes must be dealt with separately in order to retrieve subnodes recursively.
+            if node_feature.GetPrincipalInterfaceType() == PySpin.intfICategory:
+                result &= retrieve_category_node_and_all_features(node_feature, newdict)
+
+            # Cast all non-category nodes as value nodes
+            #
+            # *** NOTES ***
+            # If dealing with a variety of node types and their values, it may be
+            # simpler to cast them as value nodes rather than as their individual types.
+            # However, with this increased ease-of-use, functionality is sacrificed.
+            elif CHOSEN_READ == ReadType.VALUE:
+                result &= retrieve_value_node(node_feature, newdict)
+
+            # Cast all non-category nodes as actual types
+            elif CHOSEN_READ == ReadType.INDIVIDUAL:
+                if node_feature.GetPrincipalInterfaceType() == PySpin.intfIString:
+                    result &= retrieve_string_node(node_feature, newdict)
+                elif node_feature.GetPrincipalInterfaceType() == PySpin.intfIInteger:
+                    result &= retrieve_integer_node(node_feature, newdict)
+                elif node_feature.GetPrincipalInterfaceType() == PySpin.intfIFloat:
+                    result &= retrieve_float_node(node_feature, newdict)
+                elif node_feature.GetPrincipalInterfaceType() == PySpin.intfIBoolean:
+                    result &= retrieve_boolean_node(node_feature, newdict)
+                elif node_feature.GetPrincipalInterfaceType() == PySpin.intfICommand:
+                    result &= retrieve_command_node(node_feature, newdict)
+                elif node_feature.GetPrincipalInterfaceType() == PySpin.intfIEnumeration:
+                    result &= retrieve_enumeration_node_and_current_entry(node_feature, newdict)
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return False
+
+    return result
+
+## ====================================================================================
+def get_camera_statusdict(cam):
+    """
+    This function acts as the body of the example. First nodes from the TL
+    device and TL stream nodemaps are retrieved and printed. Following this,
+    the camera is initialized and then nodes from the GenICam nodemap are
+    retrieved and printed.
+
+    :param cam: Camera to get nodemaps from.
+    :type cam: CameraPtr
+    :return: True if successful, False otherwise.
+    :rtype: bool
+    """
+    try:
+        result = True
+        level = 0
+        maindict = {}
+        maindict['transport_layer_devices'] = {}
+        maindict['transport_layer_stream'] = {}
+        maindict['genicam_nodes'] = {}
+
+        # Retrieve TL device nodemap
+        #
+        # *** NOTES ***
+        # The TL device nodemap is available on the transport layer. As such,
+        # camera initialization is unnecessary. It provides mostly immutable
+        # information fundamental to the camera such as the serial number,
+        # vendor, and model.
+
+        nodemap_gentl = cam.GetTLDeviceNodeMap()
+        result &= retrieve_category_node_and_all_features(nodemap_gentl.GetNode('Root'), maindict['transport_layer_devices'])
+
+        # Retrieve TL stream nodemap
+        #
+        # *** NOTES ***
+        # The TL stream nodemap is also available on the transport layer. Camera
+        # initialization is again unnecessary. As you can probably guess, it
+        # provides information on the camera's streaming performance at any
+        # given moment. Having this information available on the transport layer
+        # allows the information to be retrieved without affecting camera performance.
+
+        nodemap_tlstream = cam.GetTLStreamNodeMap()
+        result &= retrieve_category_node_and_all_features(nodemap_tlstream.GetNode('Root'), maindict['transport_layer_stream'])
+
+        # Initialize camera
+        #
+        # *** NOTES ***
+        # The camera becomes connected upon initialization. This provides
+        # access to configurable options and additional information, accessible
+        # through the GenICam nodemap.
+        #
+        # *** LATER ***
+        # Cameras should be deinitialized when no longer needed.
+
+        cam.Init()
+
+        # Retrieve GenICam nodemap
+        #
+        # *** NOTES ***
+        # The GenICam nodemap is the primary gateway to customizing
+        # and configuring the camera to suit your needs. Configuration options
+        # such as image height and width, trigger mode enabling and disabling,
+        # and the sequencer are found on this nodemap.
+
+        nodemap_applayer = cam.GetNodeMap()
+        result &= retrieve_category_node_and_all_features(nodemap_applayer.GetNode('Root'), maindict['genicam_nodes'])
+
+        # Deinitialize camera
+        #
+        # *** NOTES ***
+        # Camera deinitialization helps ensure that devices clean up properly
+        # and do not need to be power-cycled to maintain integrity.
+
+        cam.DeInit()
+
+    except PySpin.SpinnakerException as ex:
+        print('Error: %s' % ex)
+        return({})
+
+    return(maindict)
+
+## ====================================================================================
+def print_all_camera_node_info():
+    result = True
+    CHOSEN_READ = ReadType.INDIVIDUAL
+
+    # Retrieve singleton reference to system object
+    system = PySpin.System.GetInstance()
+
+    # Get current library version
+    version = system.GetLibraryVersion()
+    print('\n====================================')
+    print('Spinnaker Library version: %d.%d.%d.%d' % (version.major, version.minor, version.type, version.build))
+
+    # Retrieve list of cameras from the system
+    cam_list = system.GetCameras()
+    num_cameras = cam_list.GetSize()
+    print('Number of cameras detected: %d' % num_cameras)
+
+    # Finish if there are no cameras
+    if num_cameras == 0:
+        # Clear camera list before releasing system
+        cam_list.Clear()
+
+        # Release system instance
+        system.ReleaseInstance()
+
+        print('No camera found!')
+        return(False)
+
+    # Run example on each camera
+    for i, cam in enumerate(cam_list):
+        print(f'CAMERA #{i} STATUS:')
+
+        statusdict = get_camera_statusdict(cam)
+        result &= bool(statusdict)
+
+        ## Pretty-print the nested dictionary.
+        with io.StringIO() as buf, redirect_stdout(buf):
+            recursive_print_dict(statusdict)
+            camera_status_string = buf.getvalue()
+
+        print(camera_status_string)
+
+    # Release reference to camera
+    # NOTE: Unlike the C++ examples, we cannot rely on pointer objects being automatically
+    # cleaned up when going out of scope.
+    # The usage of del is preferred to assigning the variable to None.
+    del cam
+
+    # Clear camera list before releasing system
+
+    cam_list.Clear()
+
+    # Release instance
+    system.ReleaseInstance()
+
+    return(result)
+
+## ====================================================================================
+## ====================================================================================
+
+if __name__ == '__main__':
+    if print_all_camera_node_info:
+        sys.exit(0)
+    else:
+        sys.exit(1)

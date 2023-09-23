@@ -8,6 +8,7 @@ The user must have FLIR's Spinnaker SDK installed, and have a camera that is ope
 
 Next, the user should copy the PySpin wheel file (this has a name like ``spinnaker_python-2.5.0.80-cp38-cp38-win_amd64.whl``) to a location where it can be reached with the terminal. Start up the Anaconda terminal and do the following:
 
+    conda update -n base -c conda-forge conda
     conda create -n pyspin python=3.8				## create the "pyspin" environment
     conda activate pyspin							## enter the new environment
     conda install numpy scipy matplotlib imageio ffmpeg openh264	 ## install other packages you will need
