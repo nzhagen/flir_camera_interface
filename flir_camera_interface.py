@@ -42,6 +42,10 @@ import PySpin
 import flir_spin_library as fsl
 from glob import glob
 
+this_folder = os.path.dirname(os.path.realpath(__file__))
+print('this_folder=', this_folder)
+sys.path.append(this_folder + '/devices/')
+
 ## ===========================================================================================================
 class MPLCanvas(FigureCanvas):
     def __init__(self, noaxis=False):
@@ -314,7 +318,6 @@ class MainWindow(QMainWindow):
         self.autoexp_hlt = QHBoxLayout()
         self.do_autoexposure_button = QPushButton('Auto-adjust exposure')
         self.do_autoexposure_button.clicked.connect(self.do_autoexposure)
-        self.do_autoexposure_button.setEnabled(False)                      ## disabled the button until I get the function working
 
         self.show_histogram_button = QPushButton('Show image histogram')
         self.show_histogram_button.clicked.connect(self.show_histogram)
@@ -1082,11 +1085,11 @@ class MainWindow(QMainWindow):
 
             filename = f'{file_dir}{file_prefix}_{phasevalue_deg:03}.{file_suffix}'
             self.fileSave(filename)
-            self.outputbox.appendPlainText(f'FPP image collection is complete.')
 
         ## Return to the phase zero position.
         self.fpp_phasenum = 0
         self.update_projector_pattern()
+        self.outputbox.appendPlainText(f'FPP image collection is complete.')
 
         return
 
