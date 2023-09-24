@@ -11,9 +11,10 @@ Next, the user should copy the PySpin wheel file (this has a name like ``spinnak
 
     conda update -n base -c conda-forge conda     ## update conda before starting
     conda update --all                            ## and update all the packages too if you want
-    conda create -n pyspin python=3.8				## create the "pyspin" environment
-    conda activate pyspin							## enter the new environment
-    conda install numpy scipy matplotlib imageio ffmpeg openh264	 ## install other packages you will need
+    conda create -n flir python=3.8               ## create the "flir" environment
+    conda activate flir                           ## enter the new environment
+    conda install numpy scipy matplotlib imageio  ## install other packages you will need
+    conda install ffmpeg openh264                 ## you will need these if you want to generate videos
     pip install --no-deps spinnaker_..._python.whl		## use your filename for the pyspin wheel file
     pip install --no-deps [other files]				## if you need to install anything else with pip, use this approach
 
@@ -24,8 +25,6 @@ Now you should be able to run ``flir_camera_interface.py`` file.
 ``flir_camera_interface.py``: the GUI interface itself.
 
 ``flir_spin_library.py``: the library file, containing the scripts needed to get and set camera parameters.
-
-``flir_print_camera_status.py``: a script that prints to stdout, showing the state of all GenICam variables available on the camera.
 
 ---
 # Adding an auxiliary projector
