@@ -1099,7 +1099,12 @@ class MainWindow(QMainWindow):
 
         from device_kurios import KuriosLCTFdevice
 
-        self.lctf_device_handle = KuriosLCTFdevice()
+        try:
+            self.lctf_device_handle = KuriosLCTFdevice()
+        except Exception as err:
+            self.outputbox.appendPlainText(f'Failed to find an LCTF. Aborting initialization...')
+            return
+
         self.has_lctf = True
         self.save_lctfdata_button.setEnabled(True)
 
@@ -1157,6 +1162,7 @@ class MainWindow(QMainWindow):
             self.k10cr1_motor_obj = thorlabs_motor()
         except Exception as err:
             self.outputbox.appendPlainText(f'Failed to find a motor. Aborting initialization...')
+            return
 
         self.motor = self.k10cr1_motor_obj.motor
         self.has_motor = True
