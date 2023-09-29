@@ -88,7 +88,7 @@ class CustomDialog(QDialog):
     def __init__(self, image):
         super().__init__()
         self.image = image[::-1,:]
-        
+
         #self.setWindowTitle("HELLO!")
         #QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         #self.buttonBox = QDialogButtonBox(QBtn)
@@ -107,9 +107,9 @@ class CustomDialog(QDialog):
         self.cb = mpl1.fig.colorbar(self.img_obj, shrink=0.85, pad=0.025)
         mpl1.ax.axis('off')
         mpl1.draw()
-        
-        self.setLayout(self.layout)        
-        
+
+        self.setLayout(self.layout)
+
 ## ===========================================================================================================
 class MainWindow(QMainWindow):
     def __init__(self, gui_height=None, gui_width=None, parent=None):
@@ -140,7 +140,7 @@ class MainWindow(QMainWindow):
         self.has_fpp = False        ## Is a projector activated for fringe projection profilometry (FPP)?
         self.has_lctf = False       ## Is a liquid-crystal tunable filter (LCTF) activated?
         self.has_motor = False      ## Is the Thorlabs rotational motor activated?
-        
+
         ## Whether to use tone-mapping when converting from 12-bit to 8-bit for display. If tone_mapping_scale is 16 then use bit truncation rather than tone-mapping.
         self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
         #self.tone_mapping_scale = 16
@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
 
         self.mainframe = QFrame(self)
         self.setCentralWidget(self.mainframe)
-        
+
         self.saturation_checkbox = QCheckBox('Paint saturated pixels red', self)
         self.saturation_checkbox.setChecked(True)
         self.saturation_checkbox.stateChanged.connect(self.saturationCheckChange)
@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
         self.initialize_camera()
         self.image = self.capture_image(1, verbose=True)
         self.update_image_params()
-        
+
         ## The QHBoxLayout for the image is needed to ensure that the image display will automatically stretch with the window geometry.
         self.hlt1 = QHBoxLayout()
         self.hlt1.addWidget(self.image_widget)
@@ -402,7 +402,7 @@ class MainWindow(QMainWindow):
         self.hlt_main = QHBoxLayout(self.mainframe)
         self.hlt_main.addWidget(self.camera_group)
         self.hlt_main.addLayout(self.hlt1)
-        
+
         return
 
     ## ===================================
@@ -478,7 +478,7 @@ class MainWindow(QMainWindow):
         else:
             self.autoscale_brightness = False
         return
-        
+
     ## ===================================
     def saturationCheckChange(self, state):
         self.saturated = (self.image >= self.cam_saturation_level)
@@ -539,7 +539,7 @@ class MainWindow(QMainWindow):
 
         ## Make sure the gamma setting is turned off.
         fsl.disable_gamma(self.nodemap)
-        
+
         return
 
     ## ===================================
@@ -594,7 +594,7 @@ class MainWindow(QMainWindow):
 
             self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
             self.update_image_params()
-            
+
         if self.live_checkbox.isChecked() and (self.ncameras > 0):
             ## Emit a signal to repeat this action after some ms defined by self.timer_delay.
             QTimer.singleShot(self.timer_delay, self.acquire_new_image)
@@ -647,7 +647,7 @@ class MainWindow(QMainWindow):
             self.exposure_spinbox.setValue(new_exposure)
             fsl.set_exposure_time(self.nodemap, new_exposure)
             self.outputbox.appendPlainText(f'Setting exposure = {self.exposure} usec')
-           
+
         return
 
     ## ===================================
@@ -864,7 +864,7 @@ class MainWindow(QMainWindow):
         if result_str:
             result_str += 'Video save done.\n'
             self.outputbox.appendPlainText(result_str)
-            
+
         self.file_counter += nframes
 
         if initial_state_is_live:
@@ -928,12 +928,12 @@ class MainWindow(QMainWindow):
         self.exposure_spinbox.setValue(self.exposure)
         fsl.set_exposure_time(self.nodemap, self.exposure)
             self.acquire_new_image()
-            
+
             ## If the checkbox is not checked, then "acquire_new_image()" will not update the "img_has_saturation" variable.
             if self.saturation_checkbox.isChecked():
                 self.saturated = (self.image >= self.cam_saturation_level)
                 self.img_has_saturation = self.saturated.any()
-        
+
         self.exposure = uint32(self.exposure * self.cam_saturation_level * 0.98 / amax(self.image))
         self.exposure_spinbox.setValue(self.exposure)
         fsl.set_exposure_time(self.nodemap, self.exposure)
@@ -968,7 +968,7 @@ class MainWindow(QMainWindow):
             return
 
         self.cropping = self.binning_spinbox.value()
-        
+
         if (self.cropping == 0):
             set_height = self.image_maxheight
             set_width = self.image_maxwidth
@@ -1150,14 +1150,18 @@ class MainWindow(QMainWindow):
             return
 
         from device_k10cr1 import thorlabs_motor
-        
-        self.outputbox.appendPlainText(f'Initializing the motor.\nThis will take a minute...')
-        time.sleep(0.5)     ## Give time for the above message to appear before starting to initialize, else it shows up only after initializing is done
-        self.k10cr1_motor_obj = thorlabs_motor()
+
+        self.outputbox.appendPlainText(f'Initializing the motor.\nThis may take a minute...')
+        time.sleep(1.0)     ## Give time for the above message to appear before starting to initialize, else it shows up only after initializing is done
+        try:
+            self.k10cr1_motor_obj = thorlabs_motor()
+        except Exception as err:
+            self.outputbox.appendPlainText(f'Failed to find a motor. Aborting initialization...')
+
         self.motor = self.k10cr1_motor_obj.motor
         self.has_motor = True
         self.save_hurlbut_data_button.setEnabled(True)
-        
+
         return
 
     ## ===================================
@@ -1212,16 +1216,16 @@ def clean_folders():
         files += glob(folder + '*.tif') + glob(folder + '*.TIF')
         files += glob(folder + '*.tiff') + glob(folder + '*.TIFF')
         files = unique(files)
-        
+
         current_time = time.time()
         for f in files:
             file_creation_time = os.path.getctime(f)
-            
+
             ## Delete any image files more than 18 hours old
             if (current_time - file_creation_time) / 3600 >= 18.0:
                 print(f'Deleting "{f}" ...')
                 os.unlink(f)
-    
+
     return
 
 ## ======================================================================================================
