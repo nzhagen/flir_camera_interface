@@ -318,6 +318,7 @@ class MainWindow(QMainWindow):
         self.autoexp_hlt = QHBoxLayout()
         self.do_autoexposure_button = QPushButton('Auto-adjust exposure')
         self.do_autoexposure_button.clicked.connect(self.do_autoexposure)
+        #self.do_autoexposure_button.setEnabled(False)                      ## disabled the button until I get the function working
 
         self.show_histogram_button = QPushButton('Show image histogram')
         self.show_histogram_button.clicked.connect(self.show_histogram)
@@ -1172,7 +1173,8 @@ class MainWindow(QMainWindow):
         self.hurlbut_angles = arange(self.nangles) * self.angle_stepsize
 
         for a in self.hurlbut_angles:
-            self.motor.move_to(a)
+            self.motor.move_to(a, blocking=True)
+            #self.k10cr1_motor_obj.live_motion_monitor(a)
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
