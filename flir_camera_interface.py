@@ -38,8 +38,6 @@ numpy.seterr(invalid='ignore')
 
 import struct, time, os, sys
 from imageio import imread, imsave
-import PySpin
-import flir_spin_library as fsl
 from glob import glob
 
 this_folder = os.path.dirname(os.path.realpath(__file__))
@@ -137,6 +135,7 @@ class MainWindow(QMainWindow):
         self.cwd = os.getcwd()
         self.timer_delay = 50       ## time in ms to delay before requesting a new image from the camera
         self.autoscale_brightness = True        ## whether to automatically scale the display so the darkest pixel is black and the brightest is white
+        self.ncameras = 0           ## Number of cameras connected here (normally 0 or 1)
         self.has_fpp = False        ## Is a projector activated for fringe projection profilometry (FPP)?
         self.has_lctf = False       ## Is a liquid-crystal tunable filter (LCTF) activated?
         self.has_motor = False      ## Is the Thorlabs rotational motor activated?
@@ -185,7 +184,16 @@ class MainWindow(QMainWindow):
         self.image_widget = QLabel()
         self.image_widget.mousePressEvent = self.image_clicked
         self.initialize_camera()
+
+        if (self.ncameras > 0):
         self.image = self.capture_image(1, verbose=True)
+        else:
+            self.image = imread('default_image.tif')[::-1,:]
+            self.framerate = 0
+            self.min_exposure = 1
+            self.max_exposure = 1000
+            #(self.Ny,self.Nx) = self.image.shape
+
         self.update_image_params()
 
         ## The QHBoxLayout for the image is needed to ensure that the image display will automatically stretch with the window geometry.
@@ -255,7 +263,7 @@ class MainWindow(QMainWindow):
             self.framerate_spinbox.valueChanged.connect(self.frameRateChange)
         else:
             self.framerate_spinbox.setEnabled(False)
-            self.framerate_label.setStyleSheet('color: rgba(125, 125, 125, 0);')
+            self.framerate_label.setStyleSheet('color: rgba(125, 125, 125, 1);')
 
         ## Disable the framerate stuff for now.
         self.framerate_spinbox.setEnabled(False)
@@ -318,7 +326,8 @@ class MainWindow(QMainWindow):
         self.autoexp_hlt = QHBoxLayout()
         self.do_autoexposure_button = QPushButton('Auto-adjust exposure')
         self.do_autoexposure_button.clicked.connect(self.do_autoexposure)
-        #self.do_autoexposure_button.setEnabled(False)                      ## disabled the button until I get the function working
+        if (self.ncameras == 0) or not self.live_checkbox.isChecked():
+            self.do_autoexposure_button.setEnabled(False)                      ## disabled the button until I get the function working
 
         self.show_histogram_button = QPushButton('Show image histogram')
         self.show_histogram_button.clicked.connect(self.show_histogram)
@@ -487,6 +496,12 @@ class MainWindow(QMainWindow):
 
     ## ===================================
     def initialize_camera(self):
+        try:
+            import PySpin
+            import flir_spin_library as fsl
+        except:
+            return
+
         self.camera_system = PySpin.System.GetInstance()
 
         # Retrieve list of cameras from the system
@@ -495,7 +510,8 @@ class MainWindow(QMainWindow):
         print(f'Number of cameras detected: {self.ncameras}')
 
         if (self.ncameras == 0):
-            raise ValueError(f'No cameras detected.')
+            self.outputbox.appendPlainText(f'No cameras detected!')
+            return
 
         self.camera = self.camera_list[0]
         self.nodemap_tldevice = self.camera.GetTLDeviceNodeMap()
