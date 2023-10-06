@@ -1142,13 +1142,11 @@ class MainWindow(QMainWindow):
         file_prefix = self.file_prefix_editbox.text()
         file_suffix = self.file_suffix_editbox.text()
 
-        self.lctf_wavelist = uint16(linspace(430,720,30))     ## returns a list from 430 to 720 in increments of 10
+        self.lctf_wavelist = uint16(linspace(430,650,20))     ## returns a list from 430 to 720 in increments of 10
         self.lctf_wave_counter = 0          ## counter for which element of wavelist is the current one
-        self.lctf_currentwave = self.lctf_wavelist[self.lctf_wave_counter]    ## the current wavelength
 
         for wave_nm in self.lctf_wavelist:
             self.set_lctf_wavelength(wave_nm)
-            self.lctf_currentwave = wave_nm
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
@@ -1156,12 +1154,13 @@ class MainWindow(QMainWindow):
             else:
                 self.image = img
 
+            ## Actually, I really should be saving the exposure time too, in order to keep track of changes.
             filename = f'{file_dir}{file_prefix}_{wave_nm:03}.{file_suffix}'
             self.fileSave(filename)
 
         ## Return to the 550nm default wavelength.
         self.set_lctf_wavelength(550)
-            self.outputbox.appendPlainText(f'LCTF image collection is complete.')
+        self.outputbox.appendPlainText(f'LCTF image collection is complete.')
 
         return
 
