@@ -143,7 +143,7 @@ def set_exposure_time(nodemap, time_in_usec, verbose=False):
         max_exposure_time = node_exposure_time.GetMax()
         set_time = max((time_in_usec, min_exposure_time))
         set_time = min((set_time, max_exposure_time))
-        node_exposure_time.SetValue(set_time)
+        node_exposure_time.SetValue(float(set_time), False)
 
         if verbose:
             print(f'Exposure time: limits = ({min_exposure_time:.1f},{max_exposure_time:.1f}), value set to {node_exposure_time.GetValue():.1f} usec ...')

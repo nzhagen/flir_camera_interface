@@ -932,7 +932,7 @@ class MainWindow(QMainWindow):
         return
 
     ## ===================================
-    def do_autoexposure(self):
+    def do_autoexposure(self, button_info, verbose=True):
         if (self.ncameras == 0) or not self.live_checkbox.isChecked():
             self.outputbox.appendPlainText(f'Cannot do autoexposure when the camera is not live!')
             return
@@ -944,6 +944,9 @@ class MainWindow(QMainWindow):
         self.exposure_spinbox.setValue(self.exposure)
         fsl.set_exposure_time(self.nodemap, self.exposure)
             self.acquire_new_image()
+            if (self.image is None):
+                self.outputbox.appendPlainText(f'Failed to capture an image. Aborting...')
+                return(False)
 
             ## If the checkbox is not checked, then "acquire_new_image()" will not update the "img_has_saturation" variable.
             if self.saturation_checkbox.isChecked():
@@ -951,9 +954,11 @@ class MainWindow(QMainWindow):
                 self.img_has_saturation = self.saturated.any()
 
         self.exposure = uint32(self.exposure * self.cam_saturation_level * 0.98 / amax(self.image))
+        if verbose:
+            self.outputbox.appendPlainText(f'Set optimized exposure time to {self.exposure}ms')
         self.exposure_spinbox.setValue(self.exposure)
         fsl.set_exposure_time(self.nodemap, self.exposure)
-        return
+        return(True)
 
     ## ===================================
     def binningChange(self):
@@ -1147,6 +1152,16 @@ class MainWindow(QMainWindow):
 
         for wave_nm in self.lctf_wavelist:
             self.set_lctf_wavelength(wave_nm)
+            
+            ## Check image exposure time here.
+            ok = self.do_autoexposure(None, verbose=False)
+            if not ok:
+                self.outputbox.appendPlainText(f'Failed collection sequence!')
+                return
+                
+            self.outputbox.appendPlainText(f'{wave_nm}nm: set optimized exposure time to {self.exposure}ms')
+            time.sleep(0.2)
+            
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
@@ -1157,6 +1172,7 @@ class MainWindow(QMainWindow):
             ## Actually, I really should be saving the exposure time too, in order to keep track of changes.
             filename = f'{file_dir}{file_prefix}_{wave_nm:03}.{file_suffix}'
             self.fileSave(filename)
+            time.sleep(0.2)
 
         ## Return to the 550nm default wavelength.
         self.set_lctf_wavelength(550)
