@@ -14,9 +14,8 @@ Next, the user should copy the PySpin wheel file (this has a name like ``spinnak
     conda create -n flir python=3.8               ## create the "flir" environment
     conda activate flir                           ## enter the new environment
     conda install numpy scipy matplotlib imageio  ## install other packages you will need
-    conda install ffmpeg openh264                 ## you will need these if you want to generate videos
-    pip install --no-deps spinnaker_..._python.whl		## use your filename for the pyspin wheel file
-    pip install --no-deps [other files]				## if you need to install anything else with pip, use this approach
+    [optional] conda install ffmpeg openh264      ## you only need these if you want to generate videos
+    pip install --no-deps spinnaker_..._python.whl   ## use your filename for the pyspin wheel file
 
 Now you should be able to run ``flir_camera_interface.py`` file.
 
