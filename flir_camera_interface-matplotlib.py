@@ -542,7 +542,7 @@ class MainWindow(QMainWindow):
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
                 return
             else:
-                self.image = img
+                self.image = img[::-1,:]
 
             self.image_counter += 1
             self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
@@ -759,7 +759,7 @@ class MainWindow(QMainWindow):
         suffix = os.path.splitext(filename)[1][1:]
 
         if verbose:
-        self.outputbox.appendPlainText(f'Saving "{filename}"')
+            self.outputbox.appendPlainText(f'Saving "{filename}"')
 
         ## Currently I don't have saving to *.raw format working for single frames. Redirect to these to *.tif.
 
@@ -769,10 +769,10 @@ class MainWindow(QMainWindow):
                 imsave(filename, img8bit)
             elif suffix in ('tif','tiff'):
                 imsave(filename, self.image[::-1,:])
-                elif suffix == 'raw':
-                    new_filename = filename[:-4]+'.tif'
-                    self.outputbox.appendPlainText(f'Saving to RAW is not yet available for single frames. Changing to TIF: "{new_filename}"')
-                    imsave(new_filename, self.image[::-1,:])
+            elif suffix == 'raw':
+                new_filename = filename[:-4]+'.tif'
+                self.outputbox.appendPlainText(f'Saving to RAW is not yet available for single frames. Changing to TIF: "{new_filename}"')
+                imsave(new_filename, self.image[::-1,:])
             elif suffix == 'npz':
                 savez(filename, image=self.image)
 
