@@ -186,7 +186,7 @@ class MainWindow(QMainWindow):
         self.initialize_camera()
 
         if (self.ncameras > 0):
-        self.image = self.capture_image(1, verbose=True)
+            self.image = self.capture_image(1, verbose=True)
         else:
             self.image = imread('default_image.tif')[::-1,:]
             self.framerate = 0
@@ -941,8 +941,8 @@ class MainWindow(QMainWindow):
         ## If there are saturated pixels, then we first have to reduce the exposure so that they are not saturated and then do the linear exposure scaling.
         while self.img_has_saturation:
             self.exposure /= 2
-        self.exposure_spinbox.setValue(self.exposure)
-        fsl.set_exposure_time(self.nodemap, self.exposure)
+            self.exposure_spinbox.setValue(self.exposure)
+            fsl.set_exposure_time(self.nodemap, self.exposure)
             self.acquire_new_image()
             if (self.image is None):
                 self.outputbox.appendPlainText(f'Failed to capture an image. Aborting...')
@@ -1152,16 +1152,16 @@ class MainWindow(QMainWindow):
 
         for wave_nm in self.lctf_wavelist:
             self.set_lctf_wavelength(wave_nm)
-            
+
             ## Check image exposure time here.
             ok = self.do_autoexposure(None, verbose=False)
             if not ok:
                 self.outputbox.appendPlainText(f'Failed collection sequence!')
                 return
-                
+
             self.outputbox.appendPlainText(f'{wave_nm}nm: set optimized exposure time to {self.exposure}ms')
             time.sleep(0.2)
-            
+
             img = self.capture_image(1)
             if img is None:
                 self.outputbox.appendPlainText(f'Failed to collect an image!')
