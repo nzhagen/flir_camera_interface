@@ -39,6 +39,12 @@ numpy.seterr(invalid='ignore')
 import struct, time, os, sys
 from imageio import imread, imsave
 from glob import glob
+try:
+    import PySpin
+    import flir_spin_library as fsl
+except:
+    print('Cannot find the PySpin library. Did you maybe forget to activate the "flir" environment?')
+    pass
 
 this_folder = os.path.dirname(os.path.realpath(__file__))
 print('this_folder=', this_folder)
@@ -497,12 +503,9 @@ class MainWindow(QMainWindow):
     ## ===================================
     def initialize_camera(self):
         try:
-            import PySpin
-            import flir_spin_library as fsl
+            self.camera_system = PySpin.System.GetInstance()
         except:
             return
-
-        self.camera_system = PySpin.System.GetInstance()
 
         # Retrieve list of cameras from the system
         self.camera_list = self.camera_system.GetCameras()
@@ -521,6 +524,9 @@ class MainWindow(QMainWindow):
         ## Initialize the camera to start up with full image size.
         fsl.set_full_imagesize(self.nodemap)
 
+        ## The acquisition mode should be set to "SingleFrame" not "Continuous".
+        #fsl.set_acquisition_mode(nodemap, "SingleFrame")
+        
         if not fsl.set_autoexposure_off(self.nodemap, verbose=False):
             self.outputbox.appendPlainText(f'Failed to turn autoexposure off!')
 
@@ -554,7 +560,7 @@ class MainWindow(QMainWindow):
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
 
         ## Make sure the gamma setting is turned off.
-        fsl.disable_gamma(self.nodemap)
+        #fsl.disable_gamma(self.nodemap)
 
         return
 
@@ -653,16 +659,16 @@ class MainWindow(QMainWindow):
         if (self.ncameras == 0) or not self.live_checkbox.isChecked():
             return
 
-            new_exposure = self.exposure_spinbox.value()
-            if (new_exposure > self.max_exposure):
-                new_exposure = self.max_exposure
-            if (new_exposure < self.min_exposure):
-                new_exposure = self.min_exposure
+        new_exposure = self.exposure_spinbox.value()
+        if (new_exposure > self.max_exposure):
+            new_exposure = self.max_exposure
+        if (new_exposure < self.min_exposure):
+            new_exposure = self.min_exposure
 
-            self.exposure = new_exposure
-            self.exposure_spinbox.setValue(new_exposure)
-            fsl.set_exposure_time(self.nodemap, new_exposure)
-            self.outputbox.appendPlainText(f'Setting exposure = {self.exposure} usec')
+        self.exposure = new_exposure
+        self.exposure_spinbox.setValue(new_exposure)
+        fsl.set_exposure_time(self.nodemap, new_exposure)
+        self.outputbox.appendPlainText(f'Setting exposure = {self.exposure} usec')
 
         return
 
@@ -970,15 +976,14 @@ class MainWindow(QMainWindow):
             return
 
         self.binning = self.binning_spinbox.value()
-        self.outputbox.appendPlainText(f'Setting binning = {self.binning}')
-
         ## Now that the binning has changed, modify the image size, and update the statusbar string.
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
         self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
+        self.outputbox.appendPlainText(f'Setting binning = {self.binning}. Now the image dims = ({self.Nx},{self.Ny})')
 
         ## Modify the saturation values, and the colorbar maxval.
         self.cam_bitdepth = 12 + uint16(log2(self.binning**2))      ## camera bit depth
-        self.cam_saturation_level = (2**self.cam_bitdepth) - 1 - 7  ## why do we need '-7' here?!
+        self.cam_saturation_level = (2**self.cam_bitdepth) - 1
         self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
 
         return
