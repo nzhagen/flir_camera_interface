@@ -146,6 +146,9 @@ class MainWindow(QMainWindow):
         self.has_lctf = False       ## Is a liquid-crystal tunable filter (LCTF) activated?
         self.has_motor = False      ## Is the Thorlabs rotational motor activated?
 
+        if (self.binning > 1):
+            print(f'Binning is set to {self.binning}...')
+
         ## Whether to use tone-mapping when converting from 12-bit to 8-bit for display. If tone_mapping_scale is 16 then use bit truncation rather than tone-mapping.
         self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
         #self.tone_mapping_scale = 16
@@ -983,7 +986,7 @@ class MainWindow(QMainWindow):
 
         ## Modify the saturation values, and the colorbar maxval.
         self.cam_bitdepth = 12 + uint16(log2(self.binning**2))      ## camera bit depth
-        self.cam_saturation_level = (2**self.cam_bitdepth) - 1
+        self.cam_saturation_level = (2**self.cam_bitdepth) - 2
         self.tone_mapping_scale = uint16(pow(2.0, self.cam_bitdepth - 8))
 
         return
@@ -1289,11 +1292,13 @@ if __name__ == '__main__':
     size = screen.size()
     print('Screen Size: %d x %d' % (size.width(), size.height()))
     rect = screen.availableGeometry()
-    print('Available Size for GUI: %d x %d' % (rect.width(), rect.height()))
+    this_h = int(0.95*rect.height())
+    this_w = int(0.95*rect.width())
+    print('Available Size for GUI: %d x %d' % (this_w, this_h))
 
-    mw = MainWindow(gui_height=rect.height(), gui_width=rect.width())
+    mw = MainWindow(gui_height=this_h, gui_width=this_w)
     mw.setWindowTitle('Interactive Full-Stokes Video Camera')
-    mw.setMinimumSize(rect.width(), rect.height())
+    mw.setMinimumSize(this_w, this_h)
     mw.show()
     mw.acquire_new_image()
     sys.exit(app.exec_())       ## start the execution loop
