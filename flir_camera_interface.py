@@ -189,6 +189,12 @@ class MainWindow(QMainWindow):
         self.outputbox = QPlainTextEdit('')
         self.outputbox.setLineWrapMode(QPlainTextEdit.NoWrap)
 
+        self.statusbar = QStatusBar()
+        self.statusbar.showMessage('')
+
+        self.live_checkbox = QCheckBox('Live Data', self)
+        self.live_checkbox.setChecked(True)         ## temporarily set to true until we find out whether a camera is connected
+
         ## Initialize the camera and grab the first image.
         self.image_widget = QLabel()
         self.image_widget.mousePressEvent = self.image_clicked
@@ -200,28 +206,13 @@ class MainWindow(QMainWindow):
             self.image = imread('default_image.tif')[::-1,:]
             self.framerate = 0
             self.min_exposure = 1
-            self.max_exposure = 1000
+            self.max_exposure = 1000000
             #(self.Ny,self.Nx) = self.image.shape
 
-        self.update_image_params()
-
         ## The QHBoxLayout for the image is needed to ensure that the image display will automatically stretch with the window geometry.
-        self.hlt1 = QHBoxLayout()
-        self.hlt1.addWidget(self.image_widget)
-
-        self.statusbar = QStatusBar()
-        self.statusbar.setObjectName('statusbar')
-        self.statusbar.setSizeGripEnabled(False)
-        self.statusbar_label = QLabel(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
-        self.statusbar.addWidget(self.statusbar_label)
-        self.setStatusBar(self.statusbar)
-
-        self.live_checkbox = QCheckBox('Live Data', self)
-        if (self.ncameras > 0):
-            self.live_checkbox.setChecked(self.ncameras > 0)
-        else:
-            self.live_checkbox.setEnabled(False)
-        self.live_checkbox.stateChanged.connect(self.liveDataChange)
+        self.vlt1 = QVBoxLayout()
+        self.vlt1.addWidget(self.image_widget)
+        self.vlt1.addWidget(self.statusbar)
 
         self.file_dir_label = QLabel('File directory:')
         self.file_prefix_label = QLabel('File prefix:')
@@ -280,14 +271,11 @@ class MainWindow(QMainWindow):
         self.exposure_label = QLabel('Exposure time (\u03bcs)')
         self.exposure_spinbox = QSpinBox()
         self.exposure_spinbox.setSingleStep(1000)
-        if (self.ncameras > 0) and self.live_checkbox.isChecked():
-            self.exposure_spinbox.setRange(uint32(self.min_exposure),uint32(self.max_exposure))
-            self.exposure_spinbox.valueChanged.connect(self.exposureChange)
-            self.outputbox.appendPlainText(f'Allowed exposure time min={self.min_exposure:.0f}, max={self.max_exposure:.0f}')
-        else:
-            self.exposure_spinbox.setEnabled(False)
-            self.exposure_label.setStyleSheet('color: rgba(125, 125, 125, 1);')
+        self.exposure_label.setStyleSheet('color: rgba(125, 125, 125, 1);')
+        self.exposure_spinbox.setRange(1,1000000)       ## temporary values until we know the range of the camera
         self.exposure_spinbox.setValue(self.exposure)   ## note that the setValue() function has to come last in this block!
+        self.exposure_spinbox.valueChanged.connect(self.exposureChange)
+        self.exposure_spinbox.setEnabled(False)
 
         #self.cam_gain_label = QLabel('Sensor gain (dB)')
         #self.cam_gain_spinbox = QSpinBox()
@@ -398,28 +386,39 @@ class MainWindow(QMainWindow):
         self.outputbox.setFont(font)
         self.textbox_vlt.addWidget(self.outputbox)
 
-        self.vlt1 = QVBoxLayout(self.camera_group)
-        self.vlt1.addWidget(self.live_checkbox)
-        self.vlt1.addWidget(self.saturation_checkbox)
-        #self.vlt1.addWidget(self.autoscale_checkbox)
-        self.vlt1.addLayout(self.file_dir_hlt)
-        self.vlt1.addLayout(self.file_prefix_hlt)
-        self.vlt1.addLayout(self.hlt_saveframes)
-        self.vlt1.addWidget(self.cam_label)
-        self.vlt1.addLayout(self.cam_frate_hlt)
-        self.vlt1.addLayout(self.exposure_hlt)
-        self.vlt1.addLayout(self.cam_navgs_hlt)
-        self.vlt1.addLayout(self.binning_hlt)
-        self.vlt1.addLayout(self.cropping_hlt)
-        self.vlt1.addLayout(self.autoexp_hlt)
-        self.vlt1.addLayout(self.fpp_hlt)
-        self.vlt1.addLayout(self.lctf_hlt)
-        self.vlt1.addLayout(self.motor_hlt)
-        self.vlt1.addLayout(self.textbox_vlt)
+        self.vlt2 = QVBoxLayout(self.camera_group)
+        self.vlt2.addWidget(self.live_checkbox)
+        self.vlt2.addWidget(self.saturation_checkbox)
+        #self.vlt2.addWidget(self.autoscale_checkbox)
+        self.vlt2.addLayout(self.file_dir_hlt)
+        self.vlt2.addLayout(self.file_prefix_hlt)
+        self.vlt2.addLayout(self.hlt_saveframes)
+        self.vlt2.addWidget(self.cam_label)
+        self.vlt2.addLayout(self.cam_frate_hlt)
+        self.vlt2.addLayout(self.exposure_hlt)
+        self.vlt2.addLayout(self.cam_navgs_hlt)
+        self.vlt2.addLayout(self.binning_hlt)
+        self.vlt2.addLayout(self.cropping_hlt)
+        self.vlt2.addLayout(self.autoexp_hlt)
+        self.vlt2.addLayout(self.fpp_hlt)
+        self.vlt2.addLayout(self.lctf_hlt)
+        self.vlt2.addLayout(self.motor_hlt)
+        self.vlt2.addLayout(self.textbox_vlt)
 
         self.hlt_main = QHBoxLayout(self.mainframe)
         self.hlt_main.addWidget(self.camera_group)
-        self.hlt_main.addLayout(self.hlt1)
+        self.hlt_main.addLayout(self.vlt1)
+
+        if (self.ncameras > 0) and self.live_checkbox.isChecked():
+            self.exposure_spinbox.setEnabled(True)
+            self.exposure_spinbox.setRange(uint32(self.min_exposure),uint32(self.max_exposure))
+            self.outputbox.appendPlainText(f'Allowed exposure time min={self.min_exposure:.0f}, max={self.max_exposure:.0f}')
+
+        if (self.ncameras > 0):
+            self.live_checkbox.setChecked(self.ncameras > 0)
+        else:
+            self.live_checkbox.setEnabled(False)
+        self.live_checkbox.stateChanged.connect(self.liveDataChange)
 
         return
 
@@ -528,7 +527,7 @@ class MainWindow(QMainWindow):
         fsl.set_full_imagesize(self.nodemap)
 
         ## The acquisition mode should be set to "SingleFrame" not "Continuous".
-        #fsl.set_acquisition_mode(nodemap, "SingleFrame")
+        fsl.set_acquisition_mode(self.nodemap, "SingleFrame")
         
         if not fsl.set_autoexposure_off(self.nodemap, verbose=False):
             self.outputbox.appendPlainText(f'Failed to turn autoexposure off!')
@@ -565,10 +564,15 @@ class MainWindow(QMainWindow):
         ## Make sure the gamma setting is turned off.
         #fsl.disable_gamma(self.nodemap)
 
+        self.acquire_new_image()
+        
         return
 
     ## ===================================
     def update_image_params(self):
+        if self.image is None:
+            return
+    
         (self.Nx, self.Ny) = self.image.shape
         self.image_counter += 1
 
@@ -617,7 +621,7 @@ class MainWindow(QMainWindow):
             else:
                 self.image = img
 
-            self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
+            self.statusbar.showMessage(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
             self.update_image_params()
 
         if self.live_checkbox.isChecked() and (self.ncameras > 0):
@@ -981,7 +985,7 @@ class MainWindow(QMainWindow):
         self.binning = self.binning_spinbox.value()
         ## Now that the binning has changed, modify the image size, and update the statusbar string.
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
-        self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
+        self.statusbar.showMessage(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
         self.outputbox.appendPlainText(f'Setting binning = {self.binning}. Now the image dims = ({self.Nx},{self.Ny})')
 
         ## Modify the saturation values, and the colorbar maxval.
@@ -1022,7 +1026,7 @@ class MainWindow(QMainWindow):
 
         ## Now that the cropping has changed, modify the image size, and update the statusbar string.
         (self.Ny,self.Nx) = fsl.get_image_width_height(self.nodemap, verbose=False)
-        self.statusbar_label.setText(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
+        self.statusbar.showMessage(f'image size: img(Nx,Ny) = ({self.Nx},{self.Ny}),     image_counter = {self.image_counter}')
 
         return
 
