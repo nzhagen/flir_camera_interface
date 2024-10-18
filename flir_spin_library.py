@@ -691,6 +691,8 @@ def acquire_num_images(cam, nodemap, num_images, do_filesave=False, verbose=Fals
     """
 
     (image_width, image_height) = get_image_width_height(nodemap, verbose=False)
+    image_set = None
+    ts_set = 0
 
     try:
         ## Set acquisition mode to continuous.
@@ -784,6 +786,7 @@ def acquire_one_image(cam, nodemap, filename='', verbose=False):
     """
 
     image_data = None
+    ts = 0
 
     try:
         ## Begin image acquisition. Image acquisition must be ended when no more images are needed.

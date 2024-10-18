@@ -527,8 +527,8 @@ class MainWindow(QMainWindow):
         fsl.set_full_imagesize(self.nodemap)
 
         ## The acquisition mode should be set to "SingleFrame" not "Continuous".
-        fsl.set_acquisition_mode(self.nodemap, "SingleFrame")
-        
+        #fsl.set_acquisition_mode(self.nodemap, "SingleFrame")
+
         if not fsl.set_autoexposure_off(self.nodemap, verbose=False):
             self.outputbox.appendPlainText(f'Failed to turn autoexposure off!')
 
@@ -565,14 +565,14 @@ class MainWindow(QMainWindow):
         #fsl.disable_gamma(self.nodemap)
 
         self.acquire_new_image()
-        
+
         return
 
     ## ===================================
     def update_image_params(self):
         if self.image is None:
             return
-    
+
         (self.Nx, self.Ny) = self.image.shape
         self.image_counter += 1
 
