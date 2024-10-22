@@ -37,14 +37,19 @@ numpy.seterr(all='raise')
 numpy.seterr(invalid='ignore')
 
 import struct, time, os, sys
-from imageio import imread, imsave
 from glob import glob
+try:
+    from imageio.v2 import imread, imsave
+except:
+    from imageio import imread, imsave
+
 try:
     import PySpin
     import flir_spin_library as fsl
 except:
-    print('Cannot find the PySpin library. Did you maybe forget to activate the "flir" environment?')
-    pass
+    msg = 'Cannot find the PySpin library. Did you maybe forget to activate the "flir" environment?'
+    print(msg)
+    raise ValueError(msg)
 
 this_folder = os.path.dirname(os.path.realpath(__file__))
 print('this_folder=', this_folder)
